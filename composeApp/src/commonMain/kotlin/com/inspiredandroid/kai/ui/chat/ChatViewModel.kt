@@ -45,6 +45,14 @@ class ChatViewModel(
     private val backgroundDispatcher: CoroutineContext = getBackgroundDispatcher(),
 ) : ViewModel() {
 
+    companion object {
+        private val kaiUiBlockPattern = Regex("```kai-ui\\s*\\n", RegexOption.MULTILINE)
+    }
+
+    private fun containsKaiUiBlock(content: String): Boolean {
+        return kaiUiBlockPattern.containsMatchIn(content)
+    }
+
     private val actions = ChatActions(
         ask = ::ask,
         retry = ::retry,
@@ -145,13 +153,22 @@ class ChatViewModel(
                     isInteractive = isInteractive,
                 )
             }
-        state.copy(
+        val shouldAutoEnterInteractiveMode = !state.isInteractiveMode &&
+            history.isNotEmpty() &&
+            history.lastOrNull()?.role == History.Role.ASSISTANT &&
+            containsKaiUiBlock(history.lastOrNull()?.content ?: "")
+        val updatedState = state.copy(
             history = history.toImmutableList(),
             supportedFileExtensions = dataRepository.supportedFileExtensions().toImmutableList(),
             savedConversations = summaries.toImmutableList(),
             currentConversationId = conversationId,
             hasUnreadHeartbeat = hasUnreadHeartbeat,
         )
+        if (shouldAutoEnterInteractiveMode) {
+            updatedState.copy(isInteractiveMode = true)
+        } else {
+            updatedState
+        }
     }.distinctUntilChanged().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

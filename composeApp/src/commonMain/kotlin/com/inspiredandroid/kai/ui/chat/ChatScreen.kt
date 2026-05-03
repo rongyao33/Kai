@@ -588,17 +588,9 @@ private fun ChatModeScreen(
                             ),
                     ) {
                         if (uiState.history.isEmpty()) {
-                            // Interactive UI mode isn't offered on on-device LiteRT: the kai-ui
-                            // component schema is too large for small Gemma models to coherently
-                            // attend to, and even the minimal variant we tried was unreliable.
-                            val primaryIsOnDevice = uiState.availableServices
-                                .firstOrNull()
-                                ?.let { Service.fromId(it.serviceId).isOnDevice } == true
                             EmptyState(
                                 modifier = Modifier.fillMaxWidth().weight(1f),
                                 isUsingSharedKey = uiState.showPrivacyInfo,
-                                onStartInteractiveMode = uiState.actions.enterInteractiveMode
-                                    .takeUnless { primaryIsOnDevice },
                             )
                         } else {
                             val listState = rememberLazyListState()
