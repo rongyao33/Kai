@@ -78,6 +78,8 @@
     <string name="tool_open_file_description">Open sandbox files in your default Android app</string>
     <string name="tool_execute_shell_command_name">Execute Shell Command</string>
     <string name="tool_execute_shell_command_description">Execute a shell command in the Linux sandbox</string>
+    <string name="tool_sandbox_info_name">Sandbox Info</string>
+    <string name="tool_sandbox_info_description">Get Linux sandbox environment information</string>
     <string name="tool_open_url_name">Open URL</string>
     <string name="tool_open_url_description">Open a URL or link on the device</string>
     <string name="tool_web_search_name">Web Search</string>

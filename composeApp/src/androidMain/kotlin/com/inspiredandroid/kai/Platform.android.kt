@@ -47,6 +47,7 @@ import com.inspiredandroid.kai.tools.NotificationResult
 import com.inspiredandroid.kai.tools.NotificationTools
 import com.inspiredandroid.kai.tools.OpenFileTool
 import com.inspiredandroid.kai.tools.ProcessManagerTool
+import com.inspiredandroid.kai.tools.SandboxInfoTool
 import com.inspiredandroid.kai.tools.SchedulingTools
 import com.inspiredandroid.kai.tools.SessionSearchTools
 import com.inspiredandroid.kai.tools.ShellCommandTool
@@ -438,6 +439,7 @@ actual fun getAvailableTools(): List<Tool> {
         if (appSettings.isSandboxEnabled()) {
             add(ShellCommandTool)
             add(ProcessManagerTool)
+            add(SandboxInfoTool)
         }
 
         if (appSettings.isEmailEnabled()) {

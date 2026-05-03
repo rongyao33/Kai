@@ -84,6 +84,8 @@ class LinuxSandboxManager(
         }
     }
 
+    fun getArch(): String = getLinuxArch()
+
     private fun getLinuxArch(): String {
         val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
         return when {
@@ -276,10 +278,16 @@ class LinuxSandboxManager(
         if (currentJob?.isActive == true) return
         val packages = listOf(
             "bash", "curl", "wget", "git", "jq", "python3", "py3-pip", "nodejs",
-            // Remote-server tooling (issue #214). apk add is idempotent so
-            // existing installs that bump into this list pay nothing for the
-            // already-present ones.
             "openssh-client", "lftp", "rsync",
+            "build-base", "gcc", "g++", "make", "cmake",
+            "gdb", "strace", "ltrace",
+            "htop", "neofetch", "tree", "ripgrep", "fd", "bat",
+            "sqlite", "postgresql-client", "mysql-client",
+            "redis", "memcached",
+            "ffmpeg", "imagemagick",
+            "zip", "unzip", "tar", "xz", "gzip", "bzip2",
+            "netcat-openbsd", "nmap", "tcpdump", "iftop",
+            "vim", "nano", "micro",
         )
         currentJob = scope.launch {
             try {
