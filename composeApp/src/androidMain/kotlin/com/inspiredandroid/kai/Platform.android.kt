@@ -37,7 +37,9 @@ import com.inspiredandroid.kai.tools.CalendarPermissionController
 import com.inspiredandroid.kai.tools.CalendarRepository
 import com.inspiredandroid.kai.tools.CalendarResult
 import com.inspiredandroid.kai.tools.CommonTools
+import com.inspiredandroid.kai.tools.DeepResearchTool
 import com.inspiredandroid.kai.tools.EmailTools
+import com.inspiredandroid.kai.tools.GitCliTool
 import com.inspiredandroid.kai.tools.HeartbeatTools
 import com.inspiredandroid.kai.tools.MemorySearchTools
 import com.inspiredandroid.kai.tools.MetaLearningTools
@@ -46,6 +48,7 @@ import com.inspiredandroid.kai.tools.NotificationPermissionController
 import com.inspiredandroid.kai.tools.NotificationResult
 import com.inspiredandroid.kai.tools.NotificationTools
 import com.inspiredandroid.kai.tools.OpenFileTool
+import com.inspiredandroid.kai.tools.ParallelExecuteTool
 import com.inspiredandroid.kai.tools.ProcessManagerTool
 import com.inspiredandroid.kai.tools.SandboxInfoTool
 import com.inspiredandroid.kai.tools.SchedulingTools
@@ -224,6 +227,33 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             descriptionRes = Res.string.tool_open_file_description,
         ),
     )
+    add(
+        ToolInfo(
+            id = "deep_research",
+            name = "Deep Research",
+            description = "Perform comprehensive multi-source research on any topic",
+            nameRes = Res.string.tool_deep_research_name,
+            descriptionRes = Res.string.tool_deep_research_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "git_cli",
+            name = "Git CLI",
+            description = "Execute Git commands for repository management",
+            nameRes = Res.string.tool_git_cli_name,
+            descriptionRes = Res.string.tool_git_cli_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "parallel_execute",
+            name = "Parallel Execute",
+            description = "Execute up to 3 tools simultaneously for faster task completion",
+            nameRes = Res.string.tool_parallel_execute_name,
+            descriptionRes = Res.string.tool_parallel_execute_description,
+        ),
+    )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
     // master toggles (isSmsEnabled / isSmsSendEnabled) plus the FOSS-only `isSmsSupported`
     // check in `getAvailableTools()`. Listing per-tool toggles in the Tools tab was dead
@@ -262,6 +292,14 @@ actual fun getAvailableTools(): List<Tool> {
 
         if (appSettings.isToolEnabled(WebSearchTool.schema.name)) {
             add(WebSearchTool)
+        }
+
+        if (appSettings.isToolEnabled(DeepResearchTool.schema.name)) {
+            add(DeepResearchTool)
+        }
+
+        if (appSettings.isToolEnabled(ParallelExecuteTool.schema.name)) {
+            add(ParallelExecuteTool)
         }
 
         if (appSettings.isToolEnabled("send_notification")) {
@@ -440,6 +478,10 @@ actual fun getAvailableTools(): List<Tool> {
             add(ShellCommandTool)
             add(ProcessManagerTool)
             add(SandboxInfoTool)
+        }
+
+        if (appSettings.isToolEnabled("git_cli")) {
+            add(GitCliTool)
         }
 
         if (appSettings.isEmailEnabled()) {
