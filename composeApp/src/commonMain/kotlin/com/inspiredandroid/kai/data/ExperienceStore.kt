@@ -139,4 +139,11 @@ class ExperienceStore(private val appSettings: AppSettings) {
         saveExperiences(kept)
         before - kept.size
     }
+
+    suspend fun clearAll(): Int = mutex.withLock {
+        val experiences = loadExperiences()
+        val count = experiences.size
+        saveExperiences(emptyList())
+        count
+    }
 }

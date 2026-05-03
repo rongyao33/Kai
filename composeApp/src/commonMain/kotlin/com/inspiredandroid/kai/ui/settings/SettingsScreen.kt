@@ -1776,6 +1776,20 @@ private fun MemoryContent(uiState: SettingsUiState, actions: SettingsActions) {
                 onUpdateMemory = actions.onUpdateMemory,
             )
         }
+        SettingsCard {
+            LearningDataManagementSection(
+                learningDataStats = uiState.learningDataStats,
+                onShowClearDialog = actions.onShowClearLearningDataDialog,
+            )
+        }
+    }
+
+    if (uiState.showClearLearningDataDialog) {
+        ClearLearningDataDialog(
+            stats = uiState.learningDataStats,
+            onDismiss = { actions.onShowClearLearningDataDialog(false) },
+            onConfirm = actions.onClearAllLearningData,
+        )
     }
 }
 
@@ -3103,5 +3117,113 @@ internal fun ToggleableHeadline(
         text = description,
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun LearningDataManagementSection(
+    learningDataStats: LearningDataStats,
+    onShowClearDialog: (Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Learning Data Management",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "Manage AI learning data including memories, experiences, insights, and skills.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            LearningDataStatItem("Memories", learningDataStats.memoryCount)
+            LearningDataStatItem("Experiences", learningDataStats.experienceCount)
+            LearningDataStatItem("Insights", learningDataStats.insightCount)
+            LearningDataStatItem("Skills", learningDataStats.skillCount)
+        }
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = { onShowClearDialog(true) },
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error,
+            ),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Clear All Learning Data")
+        }
+    }
+}
+
+@Composable
+private fun LearningDataStatItem(label: String, count: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = count.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ClearLearningDataDialog(
+    stats: LearningDataStats,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Warning, contentDescription = null) },
+        title = { Text("Clear All Learning Data?") },
+        text = {
+            Column {
+                Text("This will permanently delete all learning data:")
+                Spacer(Modifier.height(12.dp))
+                if (stats.memoryCount > 0) Text("• ${stats.memoryCount} memories")
+                if (stats.experienceCount > 0) Text("• ${stats.experienceCount} experiences")
+                if (stats.insightCount > 0) Text("• ${stats.insightCount} insights")
+                if (stats.skillCount > 0) Text("• ${stats.skillCount} skills")
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "This action cannot be undone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Text("Clear All")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
     )
 }

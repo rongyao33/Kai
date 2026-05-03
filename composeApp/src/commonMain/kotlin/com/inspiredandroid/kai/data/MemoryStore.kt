@@ -102,4 +102,11 @@ class MemoryStore(private val appSettings: AppSettings) {
     }
 
     fun getAllMemories(): List<MemoryEntry> = loadMemories()
+
+    suspend fun clearAll(): Int = mutex.withLock {
+        val memories = loadMemories()
+        val count = memories.size
+        saveMemories(emptyList())
+        count
+    }
 }

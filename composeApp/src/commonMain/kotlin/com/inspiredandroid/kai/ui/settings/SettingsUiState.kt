@@ -113,6 +113,16 @@ data class SettingsUiState(
     val currentSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
     val pastSponsors: ImmutableList<SponsorsResponseDto.Sponsor> = persistentListOf(),
     val pendingDeletion: PendingDeletion? = null,
+    val showClearLearningDataDialog: Boolean = false,
+    val learningDataStats: LearningDataStats = LearningDataStats(),
+)
+
+@Immutable
+data class LearningDataStats(
+    val memoryCount: Int = 0,
+    val experienceCount: Int = 0,
+    val insightCount: Int = 0,
+    val skillCount: Int = 0,
 )
 
 @Immutable

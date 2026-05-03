@@ -175,6 +175,8 @@ class SettingsViewModel(
         onPrepareExport = ::onPrepareExport,
         onImportSettings = ::onImportSettings,
         onUndoDelete = ::onUndoDelete,
+        onShowClearLearningDataDialog = ::onShowClearLearningDataDialog,
+        onClearAllLearningData = ::onClearAllLearningData,
     )
 
     private val _state = MutableStateFlow(buildFullState())
@@ -858,6 +860,33 @@ class SettingsViewModel(
         pendingDeleteJob?.cancel()
         pendingDeleteJob = null
         _state.update { it.copy(pendingDeletion = null) }
+    }
+
+    private fun onShowClearLearningDataDialog(show: Boolean) {
+        if (show) {
+            val stats = LearningDataStats(
+                memoryCount = dataRepository.getMemories().size,
+                experienceCount = dataRepository.getExperiences().size,
+                insightCount = dataRepository.getInsights().size,
+                skillCount = dataRepository.getSkills().size,
+            )
+            _state.update { it.copy(showClearLearningDataDialog = true, learningDataStats = stats) }
+        } else {
+            _state.update { it.copy(showClearLearningDataDialog = false) }
+        }
+    }
+
+    private fun onClearAllLearningData() {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.clearAllLearningData()
+            _state.update {
+                it.copy(
+                    showClearLearningDataDialog = false,
+                    memories = dataRepository.getMemories().toImmutableList(),
+                    learningDataStats = LearningDataStats(),
+                )
+            }
+        }
     }
 
     override fun onCleared() {

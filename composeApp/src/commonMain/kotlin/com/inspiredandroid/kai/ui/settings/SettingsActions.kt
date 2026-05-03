@@ -58,6 +58,8 @@ data class SettingsActions(
     val onPrepareExport: () -> Map<ImportSection, String?>,
     val onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
     val onUndoDelete: () -> Unit,
+    val onShowClearLearningDataDialog: (Boolean) -> Unit,
+    val onClearAllLearningData: () -> Unit,
 ) {
     companion object {
         val NoOp = SettingsActions(
@@ -111,6 +113,8 @@ data class SettingsActions(
             onPrepareExport = { emptyMap() },
             onImportSettings = { _, _, _ -> ImportResult.Failure },
             onUndoDelete = {},
+            onShowClearLearningDataDialog = {},
+            onClearAllLearningData = {},
         )
     }
 }

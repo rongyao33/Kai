@@ -124,6 +124,8 @@ class RemoteDataRepository(
     private val memoryStore: MemoryStore,
     private val skillStore: SkillStore,
     private val insightIndex: InsightIndex,
+    private val experienceStore: ExperienceStore,
+    private val metaLearningEngine: MetaLearningEngine,
     private val taskStore: TaskStore,
     private val heartbeatManager: HeartbeatManager,
     private val emailStore: EmailStore,
@@ -1244,6 +1246,7 @@ class RemoteDataRepository(
             toolCalls.map { (callId, name, arguments) ->
                 async {
                     val result = toolExecutor.executeTool(name, arguments, conversationIdSnapshot)
+                    metaLearningEngine.recordToolExecution(name, arguments, result)
                     Triple(callId, name, result)
                 }
             }.awaitAll()
@@ -1557,6 +1560,19 @@ class RemoteDataRepository(
     }
 
     override fun startNewChat() {
+        val currentHistory = chatHistory.value
+        if (currentHistory.isNotEmpty()) {
+            kotlinx.coroutines.GlobalScope.launch {
+                try {
+                    val suggestions = metaLearningEngine.analyzeSessionForCrystallization()
+                    suggestions.forEach { suggestion ->
+                        metaLearningEngine.crystallize(suggestion)
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+        metaLearningEngine.clearSessionState()
         setCurrentConversationId(null)
         chatHistory.value = emptyList()
     }
@@ -1768,6 +1784,29 @@ class RemoteDataRepository(
     override suspend fun updateMemoryContent(key: String, content: String) {
         memoryStore.updateContent(key, content)
     }
+
+    override suspend fun clearAllMemories(): Int = memoryStore.clearAll()
+
+    override suspend fun clearAllExperiences(): Int = experienceStore.clearAll()
+
+    override suspend fun clearAllInsights(): Int = insightIndex.clearAll()
+
+    override suspend fun clearAllSkills(): Int = skillStore.clearAll()
+
+    override suspend fun clearAllLearningData(): ClearAllLearningDataResult {
+        val memories = memoryStore.clearAll()
+        val experiences = experienceStore.clearAll()
+        val insights = insightIndex.clearAll()
+        val skills = skillStore.clearAll()
+        metaLearningEngine.clearSessionState()
+        return ClearAllLearningDataResult(memories, experiences, insights, skills)
+    }
+
+    override fun getExperiences(): List<ExperienceEntry> = experienceStore.getRecentExperiences()
+
+    override fun getInsights(): List<InsightEntry> = insightIndex.getActiveInsights()
+
+    override fun getSkills(): List<SkillEntry> = skillStore.getAllSkills()
 
     override fun isSchedulingEnabled(): Boolean = appSettings.isSchedulingEnabled()
 

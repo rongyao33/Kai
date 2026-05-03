@@ -82,6 +82,23 @@ interface DataRepository {
     suspend fun deleteMemory(key: String)
     suspend fun updateMemoryContent(key: String, content: String)
 
+    // Learning system management (memories, experiences, insights, skills)
+    suspend fun clearAllMemories(): Int
+    suspend fun clearAllExperiences(): Int
+    suspend fun clearAllInsights(): Int
+    suspend fun clearAllSkills(): Int
+    suspend fun clearAllLearningData(): ClearAllLearningDataResult
+    fun getExperiences(): List<ExperienceEntry>
+    fun getInsights(): List<InsightEntry>
+    fun getSkills(): List<SkillEntry>
+
+data class ClearAllLearningDataResult(
+    val memoriesCleared: Int,
+    val experiencesCleared: Int,
+    val insightsCleared: Int,
+    val skillsCleared: Int,
+)
+
     // Scheduling management
     fun isSchedulingEnabled(): Boolean
     fun setSchedulingEnabled(enabled: Boolean)

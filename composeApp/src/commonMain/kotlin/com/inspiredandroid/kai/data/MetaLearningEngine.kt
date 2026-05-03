@@ -51,6 +51,18 @@ class MetaLearningEngine(
         )
     }
 
+    fun recordToolExecution(toolName: String, args: String, result: String) {
+        val argsSummary = args.take(200)
+        val resultSummary = result.take(500)
+        val success = !result.lowercase().contains("error") && !result.lowercase().contains("failed")
+        recordToolExecution(toolName, argsSummary, resultSummary, success)
+    }
+
+    fun clearSessionState() {
+        _currentSessionTools.value = emptyList()
+        _pendingCrystallization.value = emptyList()
+    }
+
     fun resetSessionTracking() {
         _currentSessionTools.value = emptyList()
     }
@@ -60,6 +72,42 @@ class MetaLearningEngine(
         if (tools.size < 5) return false
         val successRate = tools.count { it.success }.toFloat() / tools.size
         return successRate >= 0.6f
+    }
+
+    fun analyzeSessionForCrystallization(): List<CrystallizationSuggestion> {
+        val tools = _currentSessionTools.value
+        if (tools.size < 3) return emptyList()
+
+        val successCount = tools.count { it.success }
+        val outcome = when {
+            successCount == tools.size -> ExperienceOutcome.SUCCESS
+            successCount >= tools.size / 2 -> ExperienceOutcome.PARTIAL
+            else -> ExperienceOutcome.FAILURE
+        }
+
+        val toolNames = tools.map { it.toolName }.distinct()
+        val taskSummary = "Session with ${tools.size} tool calls: ${toolNames.take(3).joinToString(", ")}"
+        val tags = extractTags(tools, taskSummary)
+        val category = inferCategory(tools, taskSummary)
+        val skillName = inferSkillName(taskSummary, toolNames)
+        val description = buildDescription(taskSummary, tools, outcome)
+        val content = buildSkillContent(tools, taskSummary, outcome)
+        val confidence = calculateConfidence(tools, outcome)
+
+        val experienceId = "exp-pending-${Clock.System.now().toEpochMilliseconds()}"
+
+        return listOf(
+            CrystallizationSuggestion(
+                experienceId = experienceId,
+                suggestedSkillName = skillName,
+                suggestedDescription = description,
+                suggestedContent = content,
+                suggestedCategory = category,
+                suggestedTags = tags,
+                confidence = confidence,
+                reason = buildCrystallizationReason(tools, outcome, confidence),
+            ),
+        )
     }
 
     fun analyzeSessionForCrystallization(conversationId: String, taskSummary: String): CrystallizationSuggestion? {
@@ -93,6 +141,59 @@ class MetaLearningEngine(
             confidence = confidence,
             reason = buildCrystallizationReason(tools, outcome, confidence),
         )
+    }
+
+    suspend fun crystallize(suggestion: CrystallizationSuggestion): SkillEntry? {
+        val tools = _currentSessionTools.value
+        val successCount = tools.count { it.success }
+        val outcome = when {
+            successCount == tools.size -> ExperienceOutcome.SUCCESS
+            successCount >= tools.size / 2 -> ExperienceOutcome.PARTIAL
+            else -> ExperienceOutcome.FAILURE
+        }
+
+        val experience = experienceStore.record(
+            conversationId = "session-${Clock.System.now().toEpochMilliseconds()}",
+            taskSummary = suggestion.suggestedDescription,
+            toolSequence = tools.map { ToolStep(it.toolName, it.argsSummary, it.resultSummary, it.success) },
+            outcome = outcome,
+            tags = suggestion.suggestedTags,
+        )
+
+        val skill = skillStore.create(
+            name = suggestion.suggestedSkillName,
+            description = suggestion.suggestedDescription,
+            content = suggestion.suggestedContent,
+            category = suggestion.suggestedCategory,
+            autoCreated = true,
+            tags = suggestion.suggestedTags,
+        )
+
+        experienceStore.markCrystallized(experience.id, skill.id)
+
+        if (outcome == ExperienceOutcome.SUCCESS && suggestion.confidence >= 0.7f) {
+            scope.launch {
+                insightIndex.addInsight(
+                    insight = "Pattern: ${suggestion.suggestedDescription}",
+                    type = InsightType.PATTERN,
+                    sourceExperienceId = experience.id,
+                    initialConfidence = suggestion.confidence,
+                )
+            }
+        }
+
+        if (outcome == ExperienceOutcome.FAILURE) {
+            scope.launch {
+                insightIndex.addInsight(
+                    insight = "Avoid: ${suggestion.suggestedDescription} — approach failed (${tools.count { !it.success }}/${tools.size} steps failed)",
+                    type = InsightType.AVOIDANCE,
+                    sourceExperienceId = experience.id,
+                    initialConfidence = 0.6f,
+                )
+            }
+        }
+
+        return skill
     }
 
     suspend fun crystallize(suggestion: CrystallizationSuggestion, conversationId: String): SkillEntry? {

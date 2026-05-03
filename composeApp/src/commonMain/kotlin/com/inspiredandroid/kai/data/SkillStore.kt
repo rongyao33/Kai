@@ -242,4 +242,11 @@ class SkillStore(private val appSettings: AppSettings) {
         }
         return result
     }
+
+    suspend fun clearAll(): Int = mutex.withLock {
+        val skills = loadSkills()
+        val count = skills.size
+        saveSkills(emptyList())
+        count
+    }
 }

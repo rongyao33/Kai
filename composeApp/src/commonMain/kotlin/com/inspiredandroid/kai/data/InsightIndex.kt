@@ -150,4 +150,11 @@ class InsightIndex(private val appSettings: AppSettings) {
         loadInsights().filter { !it.deprecated }
             .sortedByDescending { it.triggeredCount }
             .take(limit)
+
+    suspend fun clearAll(): Int = mutex.withLock {
+        val insights = loadInsights()
+        val count = insights.size
+        saveInsights(emptyList())
+        count
+    }
 }
