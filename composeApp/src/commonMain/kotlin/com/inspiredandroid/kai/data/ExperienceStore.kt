@@ -1,6 +1,7 @@
 package com.inspiredandroid.kai.data
 
 import androidx.compose.runtime.Immutable
+import com.inspiredandroid.kai.util.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable

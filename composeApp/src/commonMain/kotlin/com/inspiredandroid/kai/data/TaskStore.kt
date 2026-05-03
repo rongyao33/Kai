@@ -37,7 +37,7 @@ class TaskStore(private val appSettings: AppSettings) {
         if (migrated) saveTasks(upgraded)
         upgraded
     } catch (e: Exception) {
-        println("TaskStore: failed to load tasks: ${e.message}")
+        Logger.e("TaskStore", "failed to load tasks: ${e.message}")
         mutableListOf()
     }
 

@@ -4,6 +4,7 @@ import com.inspiredandroid.kai.Version
 import com.inspiredandroid.kai.currentPlatform
 import com.inspiredandroid.kai.data.Service
 import com.inspiredandroid.kai.httpClient
+import com.inspiredandroid.kai.util.Logger
 import com.inspiredandroid.kai.isDebugBuild
 import com.inspiredandroid.kai.network.dtos.anthropic.AnthropicChatRequestDto
 import com.inspiredandroid.kai.network.dtos.anthropic.AnthropicChatResponseDto
@@ -85,7 +86,7 @@ class Requests {
 
     class DebugKtorLogger : Logger {
         override fun log(message: String) {
-            println("[KTOR] $message")
+            Logger.d("KTOR", message)
         }
     }
 

@@ -2,6 +2,7 @@ package com.inspiredandroid.kai.ui.sandbox
 
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
+import com.inspiredandroid.kai.util.Logger
 import androidx.lifecycle.viewModelScope
 import com.inspiredandroid.kai.SandboxController
 import com.inspiredandroid.kai.SandboxSessions
@@ -257,24 +258,24 @@ class SandboxPackagesViewModel(
         stderrChannel.close()
         val stdout = buildString { for (line in stdoutChannel) appendLine(line) }
         val stderr = buildString { for (line in stderrChannel) appendLine(line) }
-        println("$LOG_TAG [runAndCapture] exit=$exit cmd=$cmd")
+        Logger.d(LOG_TAG, "[runAndCapture] exit=$exit cmd=$cmd")
         logMultiline("runAndCapture stdout", stdout)
         logMultiline("runAndCapture stderr", stderr)
         return CommandResult(exit, stdout, stderr)
     }
 
     private fun log(label: String, cmd: String, output: String) {
-        println("$LOG_TAG [$label] cmd=$cmd")
+        Logger.d(LOG_TAG, "[$label] cmd=$cmd")
         logMultiline("$label output", output)
     }
 
     private fun logMultiline(label: String, body: String) {
         if (body.isEmpty()) {
-            println("$LOG_TAG [$label] <empty>")
+            Logger.d(LOG_TAG, "[$label] <empty>")
             return
         }
         body.lineSequence().forEach { line ->
-            if (line.isNotEmpty()) println("$LOG_TAG [$label] $line")
+            if (line.isNotEmpty()) Logger.d(LOG_TAG, "[$label] $line")
         }
     }
 

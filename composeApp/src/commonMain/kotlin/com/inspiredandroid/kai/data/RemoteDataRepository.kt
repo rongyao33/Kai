@@ -4,6 +4,7 @@ package com.inspiredandroid.kai.data
 
 import com.inspiredandroid.kai.SandboxController
 import com.inspiredandroid.kai.compressImageBytes
+import com.inspiredandroid.kai.util.Logger
 import com.inspiredandroid.kai.currentPlatform
 import com.inspiredandroid.kai.email.EmailPoller
 import com.inspiredandroid.kai.formatFileSize
@@ -460,7 +461,7 @@ class RemoteDataRepository(
             // Retry once without tools so the user gets *some* answer rather than a hard
             // error in the UI. With an empty tool list, LiteRTInferenceEngine sets
             // automaticToolCalling = false, so the parser is bypassed entirely on the retry.
-            println("LiteRT: tool-call parser failed (${e.message?.take(200)}). Falling back to plain chat.")
+            Logger.w("LiteRT", "tool-call parser failed (${e.message?.take(200)}). Falling back to plain chat.")
             engine.chat(messages = inferenceMessages, systemPrompt = systemPrompt, tools = emptyList())
         }
     }

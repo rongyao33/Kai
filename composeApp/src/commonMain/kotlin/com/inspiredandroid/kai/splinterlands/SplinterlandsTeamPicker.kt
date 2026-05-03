@@ -91,14 +91,16 @@ private fun getSummonerBuffs(stats: JsonObject): SummonerBuffs {
 
 // ── Card entry building ──
 
-fun buildCardEntry(card: JsonObject, detail: JsonObject): CardEntry {
+fun buildCardEntry(card: JsonObject, detail: JsonObject): CardEntry? {
     val color = detail["color"]?.jsonPrimitive?.content ?: ""
     val rarityInt = detail["rarity"]?.jsonPrimitive?.int ?: 1
     val level = card["level"]?.jsonPrimitive?.int ?: 1
     val stats = detail["stats"]?.jsonObject ?: JsonObject(emptyMap())
+    val uid = card["uid"]?.jsonPrimitive?.content ?: return null
+    val detailId = card["card_detail_id"]?.jsonPrimitive?.int ?: return null
     return CardEntry(
-        uid = card["uid"]!!.jsonPrimitive.content,
-        detailId = card["card_detail_id"]!!.jsonPrimitive.int,
+        uid = uid,
+        detailId = detailId,
         color = color,
         splinter = COLOR_TO_SPLINTER[color] ?: color,
         mana = atLevel(stats["mana"], level),
@@ -114,14 +116,16 @@ fun buildCardEntry(card: JsonObject, detail: JsonObject): CardEntry {
     )
 }
 
-fun buildSummonerEntry(card: JsonObject, detail: JsonObject): SummonerEntry {
+fun buildSummonerEntry(card: JsonObject, detail: JsonObject): SummonerEntry? {
     val color = detail["color"]?.jsonPrimitive?.content ?: ""
     val rarityInt = detail["rarity"]?.jsonPrimitive?.int ?: 1
     val level = card["level"]?.jsonPrimitive?.int ?: 1
     val stats = detail["stats"]?.jsonObject ?: JsonObject(emptyMap())
+    val uid = card["uid"]?.jsonPrimitive?.content ?: return null
+    val detailId = card["card_detail_id"]?.jsonPrimitive?.int ?: return null
     return SummonerEntry(
-        uid = card["uid"]!!.jsonPrimitive.content,
-        detailId = card["card_detail_id"]!!.jsonPrimitive.int,
+        uid = uid,
+        detailId = detailId,
         color = color,
         splinter = COLOR_TO_SPLINTER[color] ?: color,
         mana = atLevel(stats["mana"], level),
@@ -859,8 +863,8 @@ fun pickTeam(
         if (color in inactiveColors || splinter in inactiveColors) continue
 
         when (cardType) {
-            "Summoner" -> summoners.add(buildSummonerEntry(card, detail))
-            "Monster" -> monsters.add(buildCardEntry(card, detail))
+            "Summoner" -> buildSummonerEntry(card, detail)?.let { summoners.add(it) }
+            "Monster" -> buildCardEntry(card, detail)?.let { monsters.add(it) }
         }
     }
 

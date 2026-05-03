@@ -1,6 +1,7 @@
 package com.inspiredandroid.kai.ui.dynamicui
 
 import com.inspiredandroid.kai.data.SharedJson
+import com.inspiredandroid.kai.util.Logger
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -58,7 +59,7 @@ object KaiUiParser {
         return try {
             parseSingleNode(json)?.let { UiBlockResult.Ui(it, json) }
         } catch (e: Exception) {
-            println("kai-ui parse error: ${e.message} | ${json.take(500)}")
+            Logger.e("KaiUiParser", "parse error: ${e.message} | ${json.take(500)}")
             UiBlockResult.Error(json)
         }
     }
@@ -71,7 +72,7 @@ object KaiUiParser {
     private fun tryParseLine(line: String): KaiUiNode? = runCatching { parseSingleNode(line) }.getOrNull()
         ?: runCatching { parseSingleNode(sanitizeJson(line)) }.getOrNull()
         ?: run {
-            println("kai-ui parse error: failed to deserialize line | ${line.take(500)}")
+            Logger.e("KaiUiParser", "failed to deserialize line | ${line.take(500)}")
             null
         }
 

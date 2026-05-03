@@ -9,6 +9,7 @@ import com.inspiredandroid.kai.sendHeartbeatNotification
 import com.inspiredandroid.kai.sms.SmsPoller
 import com.inspiredandroid.kai.ui.markdown.parseMarkdown
 import com.inspiredandroid.kai.ui.markdown.toSpeakableText
+import com.inspiredandroid.kai.util.Logger
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -26,8 +27,8 @@ import kotlin.time.ExperimentalTime
 @OptIn(ExperimentalTime::class)
 class TaskScheduler(
     private val dataRepository: DataRepository,
-    private val taskStore: TaskStore? = null,
-    private val appSettings: AppSettings? = null,
+    private val taskStore: TaskStore?,
+    private val appSettings: AppSettings?,
     private val heartbeatManager: HeartbeatManager? = null,
     private val emailStore: EmailStore? = null,
     private val emailPoller: EmailPoller? = null,
@@ -39,68 +40,41 @@ class TaskScheduler(
 ) {
     private companion object {
         const val POLL_INTERVAL_MS = 60_000L
-        const val MAX_BACKOFF_MS = 3_600_000L // 1 hour
+        const val MAX_BACKOFF_MS = 3_600_000L
         const val HEARTBEAT_CONTEXT_COUNT = 3
-
-        /** Per-task execution log size — surfaced in the task details sheet. */
         const val MAX_TASK_LOG_ENTRIES = 10
-
-        /**
-         * Cap the notification body — Android's collapsed text cuts off around ~60
-         * chars anyway, and the expanded BigTextStyle view is capped to keep the
-         * notification panel tidy. The full response remains in the heartbeat
-         * conversation, which opens when the user taps the notification.
-         */
         const val HEARTBEAT_NOTIFICATION_PREVIEW_CHARS = 240
     }
 
-    /**
-     * Process-lifetime scope. Decoupled from any caller's scope so scheduled tasks and
-     * heartbeats keep firing when a short-lived caller (e.g. `ChatViewModel.viewModelScope`)
-     * is cancelled — as long as the OS keeps the process alive (which on Android means
-     * `DaemonService` holding a foreground notification).
-     */
     private val schedulerScope = CoroutineScope(
         SupervisorJob() + backgroundDispatcher + CoroutineName("TaskScheduler"),
     )
 
     private var activeJob: Job? = null
 
-    /**
-     * Predicate the loop consults before executing a task, to avoid racing with an
-     * in-flight foreground API call. Assigned by the UI layer (`ChatViewModel`) while it
-     * is alive and reset to `{ false }` when it's cleared. Default = "nothing loading",
-     * which is the right answer for the daemon-only path.
-     */
     @Volatile
     var isLoadingCheck: () -> Boolean = { false }
 
-    /**
-     * Whether the app is currently in the foreground (the user can see the in-app banner).
-     * On Android this mirrors `ProcessLifecycleOwner` — set true on the first Activity
-     * start, false when all activities stop. Other platforms leave it at the default
-     * false since their actuals for [sendHeartbeatNotification] are no-ops anyway.
-     *
-     * When a heartbeat produces a non-OK report and this is `false`, the scheduler
-     * escalates to a push notification instead of relying on the (invisible) banner.
-     */
     @Volatile
     var appInForeground: Boolean = false
 
-    /**
-     * Starts the scheduler loop on the internal long-lived scope. Idempotent — repeated
-     * calls (e.g. from both `DaemonService.onCreate` and `ChatViewModel.init`) return
-     * immediately if the loop is already running.
-     */
+    private fun requireTaskStore(): TaskStore = taskStore
+        ?: throw IllegalStateException("TaskStore is required but not initialized")
+
+    private fun requireAppSettings(): AppSettings = appSettings
+        ?: throw IllegalStateException("AppSettings is required but not initialized")
+
     fun start() {
         if (!enabled || taskStore == null || appSettings == null) return
         if (activeJob?.isActive == true) return
+        val store = taskStore
+        val settings = appSettings
         activeJob = schedulerScope.launch {
             while (isActive) {
                 delay(POLL_INTERVAL_MS.milliseconds)
-                if (!appSettings.isSchedulingEnabled()) continue
+                if (!settings.isSchedulingEnabled()) continue
 
-                val dueTasks = taskStore.getDueTasks()
+                val dueTasks = store.getDueTasks()
                 for (task in dueTasks) {
                     if (isLoadingCheck()) break
 
@@ -110,9 +84,9 @@ class TaskScheduler(
                             val header = task.description.ifBlank { "Scheduled task" }
                             dataRepository.addAssistantMessage("**$header**\n\n$response")
                         }
-                        handleTaskCompletion(task)
+                        handleTaskCompletion(task, store)
                     } catch (e: Exception) {
-                        handleTaskFailure(task, formatException(e))
+                        handleTaskFailure(task, formatException(e), store)
                     }
                 }
 
@@ -120,14 +94,11 @@ class TaskScheduler(
                     runHeartbeat()
                 }
 
-                // Email polling
-                if (!isLoadingCheck() && isEmailSupported && appSettings.isEmailEnabled() && emailStore != null) {
+                if (!isLoadingCheck() && isEmailSupported && settings.isEmailEnabled() && emailStore != null) {
                     checkNewEmails { isLoadingCheck() }
                 }
 
-                // SMS polling — FOSS-only (gated on `isSmsSupported`, which is true only
-                // when READ_SMS is declared in the merged manifest).
-                if (!isLoadingCheck() && isSmsSupported && appSettings.isSmsEnabled() && smsStore != null && smsPoller != null) {
+                if (!isLoadingCheck() && isSmsSupported && settings.isSmsEnabled() && smsStore != null && smsPoller != null) {
                     checkNewSms()
                 }
             }
@@ -285,21 +256,20 @@ class TaskScheduler(
         return (listOf(entry) + task.recentExecutions).take(MAX_TASK_LOG_ENTRIES)
     }
 
-    private suspend fun handleTaskFailure(task: ScheduledTask, error: String? = null) {
+    private suspend fun handleTaskFailure(task: ScheduledTask, error: String?, store: TaskStore) {
         val now = Clock.System.now()
         val failures = task.consecutiveFailures + 1
         val reason = error ?: "unknown error"
         val log = appendExecution(task, success = false, message = reason)
 
         if (task.cron != null) {
-            // Cron task failed — advance to the next scheduled time instead of retrying every cycle
             val nextExecution = try {
                 CronExpression(task.cron).nextAfter(now)
             } catch (_: Exception) {
                 null
             }
             if (nextExecution != null) {
-                taskStore!!.updateTask(
+                store.updateTask(
                     task.copy(
                         scheduledAtEpochMs = nextExecution.toEpochMilliseconds(),
                         lastResult = "Failed at $now: $reason (next retry at $nextExecution)",
@@ -308,7 +278,7 @@ class TaskScheduler(
                     ),
                 )
             } else {
-                taskStore!!.updateTask(
+                store.updateTask(
                     task.copy(
                         status = TaskStatus.COMPLETED,
                         lastResult = "Failed at $now: $reason (no next schedule)",
@@ -318,9 +288,8 @@ class TaskScheduler(
                 )
             }
         } else {
-            // One-time task — apply exponential backoff
             val backoffMs = min(POLL_INTERVAL_MS * (1L shl min(failures, 10)), MAX_BACKOFF_MS)
-            taskStore!!.updateTask(
+            store.updateTask(
                 task.copy(
                     scheduledAtEpochMs = now.toEpochMilliseconds() + backoffMs,
                     lastResult = "Failed at $now: $reason (retry after ${backoffMs / 1000}s backoff)",
@@ -331,17 +300,15 @@ class TaskScheduler(
         }
     }
 
-    private suspend fun handleTaskCompletion(task: ScheduledTask) {
+    private suspend fun handleTaskCompletion(task: ScheduledTask, store: TaskStore) {
         val now = Clock.System.now()
         val log = appendExecution(task, success = true, message = null)
         if (task.cron != null) {
-            // Recurring task — compute next execution time
             val nextExecution = try {
                 CronExpression(task.cron).nextAfter(now)
             } catch (e: Exception) {
-                // Cron computation failed — leave pending for retry
-                println("TaskScheduler: failed to compute next cron time for task ${task.id}: ${e.message}")
-                taskStore!!.updateTask(
+                Logger.e("TaskScheduler", "failed to compute next cron time for task ${task.id}: ${e.message}")
+                store.updateTask(
                     task.copy(
                         status = TaskStatus.PENDING,
                         lastResult = "Executed at $now (next schedule computation failed, will retry)",
@@ -352,7 +319,7 @@ class TaskScheduler(
                 return
             }
             if (nextExecution != null) {
-                taskStore!!.updateTask(
+                store.updateTask(
                     task.copy(
                         scheduledAtEpochMs = nextExecution.toEpochMilliseconds(),
                         lastResult = "Executed at $now",
@@ -362,8 +329,7 @@ class TaskScheduler(
                     ),
                 )
             } else {
-                // No valid future time — mark completed
-                taskStore!!.updateTask(
+                store.updateTask(
                     task.copy(
                         status = TaskStatus.COMPLETED,
                         lastResult = "Executed at $now (no next schedule)",
@@ -373,8 +339,7 @@ class TaskScheduler(
                 )
             }
         } else {
-            // One-time task — mark completed
-            taskStore!!.updateTask(
+            store.updateTask(
                 task.copy(
                     status = TaskStatus.COMPLETED,
                     lastResult = "Executed at $now",

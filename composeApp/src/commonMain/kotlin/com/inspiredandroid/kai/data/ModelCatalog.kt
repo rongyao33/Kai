@@ -1,5 +1,7 @@
 package com.inspiredandroid.kai.data
 
+import com.inspiredandroid.kai.util.Logger
+
 /**
  * Curated metadata for well-known models. Used as a fallback by
  * [ModelTransformations] when the provider API response doesn't expose a
@@ -1687,7 +1689,7 @@ internal object ModelCatalog {
         val key = modelId.substringAfterLast('/').lowercase()
         val hit = entries[key]
         if (hit == null && loggedMisses.add(key)) {
-            println("ModelCatalog miss: \"$key\" (raw: \"$modelId\")")
+            Logger.d("ModelCatalog", "miss: \"$key\" (raw: \"$modelId\")")
         }
         return hit
     }

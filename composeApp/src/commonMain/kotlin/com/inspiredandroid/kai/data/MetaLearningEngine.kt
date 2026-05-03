@@ -3,6 +3,7 @@ package com.inspiredandroid.kai.data
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -41,6 +42,11 @@ class MetaLearningEngine(
 
     private val _pendingCrystallization = MutableStateFlow<List<CrystallizationSuggestion>>(emptyList())
     val pendingCrystallization: StateFlow<List<CrystallizationSuggestion>> = _pendingCrystallization
+
+    fun cleanup() {
+        scope.cancel()
+        clearSessionState()
+    }
 
     fun recordToolExecution(toolName: String, argsSummary: String, resultSummary: String, success: Boolean) {
         _currentSessionTools.value = _currentSessionTools.value + ToolExecutionRecord(
