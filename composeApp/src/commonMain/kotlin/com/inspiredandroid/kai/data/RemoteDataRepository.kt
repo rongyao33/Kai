@@ -1753,10 +1753,10 @@ class RemoteDataRepository(
 
     override fun isInteractiveModeActive(): Boolean = interactiveModeFlag
 
-    override fun isMemoryEnabled(): Boolean = appSettings.isMemoryEnabled()
+    override fun isMemoryEnabled(): Boolean = true
 
     override fun setMemoryEnabled(enabled: Boolean) {
-        appSettings.setMemoryEnabled(enabled)
+        // Memory is always enabled, this method is kept for interface compatibility
     }
 
     override fun getMemories(): List<MemoryEntry> = memoryStore.getAllMemories()

@@ -469,21 +469,6 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `onToggleMemory persists and reflects in state`() = runTest {
-        val viewModel = SettingsViewModel(fakeRepository, fakeDaemonController, fakeNotificationPermissionController, noOpScheduler, testDispatcher)
-
-        viewModel.state.test {
-            val initialState = awaitItem()
-            assertTrue(initialState.isMemoryEnabled)
-            viewModel.actions.onToggleMemory(false)
-            val updated = awaitItem()
-            assertFalse(updated.isMemoryEnabled)
-            assertFalse(fakeRepository.isMemoryEnabled())
-            cancelAndIgnoreRemainingEvents()
-        }
-    }
-
-    @Test
     fun `onToggleScheduling persists and reflects in state`() = runTest {
         val viewModel = SettingsViewModel(fakeRepository, fakeDaemonController, fakeNotificationPermissionController, noOpScheduler, testDispatcher)
 

@@ -209,6 +209,7 @@ import kai.composeapp.generated.resources.settings_memories_description
 import kai.composeapp.generated.resources.settings_memories_edit_cancel
 import kai.composeapp.generated.resources.settings_memories_edit_save
 import kai.composeapp.generated.resources.settings_memories_edit_title
+import kai.composeapp.generated.resources.settings_memories_empty
 import kai.composeapp.generated.resources.settings_memories_show_all
 import kai.composeapp.generated.resources.settings_oled_mode
 import kai.composeapp.generated.resources.settings_oled_mode_description
@@ -253,6 +254,7 @@ import kai.composeapp.generated.resources.settings_status_error_rate_limited
 import kai.composeapp.generated.resources.settings_tab_agent
 import kai.composeapp.generated.resources.settings_tab_general
 import kai.composeapp.generated.resources.settings_tab_integrations
+import kai.composeapp.generated.resources.settings_tab_memory
 import kai.composeapp.generated.resources.settings_tab_sandbox
 import kai.composeapp.generated.resources.settings_tab_services
 import kai.composeapp.generated.resources.settings_tab_tools
@@ -451,6 +453,10 @@ fun SettingsScreenContent(
 
                             SettingsTab.Agent -> {
                                 AgentContent(uiState = filteredUiState, actions = actions)
+                            }
+
+                            SettingsTab.Memory -> {
+                                MemoryContent(uiState = filteredUiState, actions = actions)
                             }
 
                             SettingsTab.Services -> {
@@ -669,6 +675,7 @@ private fun SettingsTabSelector(
                         text = when (tab) {
                             SettingsTab.General -> stringResource(Res.string.settings_tab_general)
                             SettingsTab.Agent -> stringResource(Res.string.settings_tab_agent)
+                            SettingsTab.Memory -> stringResource(Res.string.settings_tab_memory)
                             SettingsTab.Services -> stringResource(Res.string.settings_tab_services)
                             SettingsTab.Tools -> stringResource(Res.string.settings_tab_tools)
                             SettingsTab.Sandbox -> stringResource(Res.string.settings_tab_sandbox)
@@ -1757,6 +1764,22 @@ private fun GeneralContent(uiState: SettingsUiState, actions: SettingsActions) {
 }
 
 @Composable
+private fun MemoryContent(uiState: SettingsUiState, actions: SettingsActions) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SettingsCard {
+            MemoryList(
+                memories = uiState.memories,
+                onDeleteMemory = actions.onDeleteMemory,
+                onUpdateMemory = actions.onUpdateMemory,
+            )
+        }
+    }
+}
+
+@Composable
 private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val useStaggered = maxWidth >= 600.dp
@@ -1782,15 +1805,6 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             onCancelTask = actions.onCancelTask,
                             isSchedulingEnabled = uiState.isSchedulingEnabled,
                             onToggleScheduling = actions.onToggleScheduling,
-                        )
-                    }
-                    SettingsCard {
-                        MemoryList(
-                            memories = uiState.memories,
-                            onDeleteMemory = actions.onDeleteMemory,
-                            onUpdateMemory = actions.onUpdateMemory,
-                            isMemoryEnabled = uiState.isMemoryEnabled,
-                            onToggleMemory = actions.onToggleMemory,
                         )
                     }
                 }
@@ -1872,15 +1886,6 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     SoulEditor(
                         soulText = uiState.soulText,
                         onSaveSoul = actions.onSaveSoul,
-                    )
-                }
-                SettingsCard {
-                    MemoryList(
-                        memories = uiState.memories,
-                        onDeleteMemory = actions.onDeleteMemory,
-                        onUpdateMemory = actions.onUpdateMemory,
-                        isMemoryEnabled = uiState.isMemoryEnabled,
-                        onToggleMemory = actions.onToggleMemory,
                     )
                 }
                 SettingsCard {
@@ -2563,8 +2568,6 @@ private fun MemoryList(
     memories: ImmutableList<MemoryEntry>,
     onDeleteMemory: (String) -> Unit,
     onUpdateMemory: (String, String) -> Unit,
-    isMemoryEnabled: Boolean,
-    onToggleMemory: (Boolean) -> Unit,
 ) {
     var showAllDialog by remember { mutableStateOf(false) }
     var editingMemory by remember { mutableStateOf<MemoryEntry?>(null) }
@@ -2575,15 +2578,26 @@ private fun MemoryList(
     val previewMemories = remember(sortedMemories) { sortedMemories.take(5) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        ToggleableHeadline(
-            title = stringResource(Res.string.settings_memories),
-            description = stringResource(Res.string.settings_memories_description),
-            checked = isMemoryEnabled,
-            onCheckedChange = onToggleMemory,
+        Text(
+            text = stringResource(Res.string.settings_memories),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(Res.string.settings_memories_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
         )
         Spacer(Modifier.height(12.dp))
 
-        if (isMemoryEnabled) {
+        if (sortedMemories.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.settings_memories_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            )
+        } else {
             previewMemories.forEach { memory ->
                 SettingsListItem(
                     title = memory.key,

@@ -368,13 +368,12 @@ class FakeDataRepository : DataRepository {
 
     override fun isInteractiveModeActive(): Boolean = interactiveMode
 
-    private var memoryEnabled = true
     private val memories = mutableListOf<MemoryEntry>()
 
-    override fun isMemoryEnabled(): Boolean = memoryEnabled
+    override fun isMemoryEnabled(): Boolean = true
 
     override fun setMemoryEnabled(enabled: Boolean) {
-        memoryEnabled = enabled
+        // Memory is always enabled, this method is kept for interface compatibility
     }
 
     override fun getMemories(): List<MemoryEntry> = memories.toList()

@@ -71,7 +71,6 @@ class SettingsViewModel(
         soulText = dataRepository.getSoulText(),
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isOledModeEnabled = dataRepository.isOledModeEnabled(),
-        isMemoryEnabled = dataRepository.isMemoryEnabled(),
         memories = dataRepository.getMemories().toImmutableList(),
         isSchedulingEnabled = dataRepository.isSchedulingEnabled(),
         scheduledTasks = dataRepository.getScheduledTasks().toImmutableList(),
@@ -138,7 +137,6 @@ class SettingsViewModel(
         onSaveSoul = ::onSaveSoul,
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleOledMode = ::onToggleOledMode,
-        onToggleMemory = ::onToggleMemory,
         onDeleteMemory = ::onDeleteMemory,
         onUpdateMemory = ::onUpdateMemory,
         onToggleScheduling = ::onToggleScheduling,
@@ -408,11 +406,6 @@ class SettingsViewModel(
     private fun onToggleOledMode(enabled: Boolean) {
         dataRepository.setOledModeEnabled(enabled)
         _state.update { it.copy(isOledModeEnabled = enabled) }
-    }
-
-    private fun onToggleMemory(enabled: Boolean) {
-        dataRepository.setMemoryEnabled(enabled)
-        _state.update { it.copy(isMemoryEnabled = enabled) }
     }
 
     private fun onDeleteMemory(key: String) {

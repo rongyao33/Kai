@@ -87,10 +87,8 @@ private object WebKoinHelper : KoinComponent {
 
 actual fun getAvailableTools(): List<Tool> = buildList {
     addAll(CommonTools.getCommonTools(WebKoinHelper.appSettings))
-    if (WebKoinHelper.appSettings.isMemoryEnabled()) {
-        addAll(CommonTools.getMemoryTools(WebKoinHelper.memoryStore))
-        addAll(MemorySearchTools.getMemorySearchTools(WebKoinHelper.memoryStore))
-    }
+    addAll(CommonTools.getMemoryTools(WebKoinHelper.memoryStore))
+    addAll(MemorySearchTools.getMemorySearchTools(WebKoinHelper.memoryStore))
     addAll(SkillTools.getSkillTools(WebKoinHelper.skillStore))
     addAll(MetaLearningTools.getMetaLearningTools(WebKoinHelper.skillStore, WebKoinHelper.insightIndex))
     addAll(SessionSearchTools.getSessionSearchTools(WebKoinHelper.conversationStorage))

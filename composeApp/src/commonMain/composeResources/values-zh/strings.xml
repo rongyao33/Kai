@@ -53,6 +53,7 @@
     <string name="privacy_policy">隐私政策</string>
     <string name="settings_tab_general">通用</string>
     <string name="settings_tab_agent">代理</string>
+    <string name="settings_tab_memory">记忆</string>
     <string name="tool_set_alarm_name">设置闹钟</string>
     <string name="tool_set_alarm_description">在设备上设置闹钟或倒计时器</string>
     <string name="tool_open_file_name">打开文件</string>
@@ -71,6 +72,7 @@
     <string name="settings_memories_edit_title">编辑记忆</string>
     <string name="settings_memories_edit_save">保存</string>
     <string name="settings_memories_edit_cancel">取消</string>
+    <string name="settings_memories_empty">暂无存储的记忆。AI 会在对话过程中自动存储重要信息。</string>
     <string name="settings_soul">灵魂</string>
     <string name="settings_soul_description">使用系统提示定义 AI 的行为方式。AI 也将访问其存储的记忆。</string>
     <string name="settings_soul_save">保存</string>

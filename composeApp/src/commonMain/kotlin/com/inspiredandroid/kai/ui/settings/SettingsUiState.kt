@@ -46,6 +46,7 @@ enum class ConnectionStatus {
 enum class SettingsTab {
     General,
     Agent,
+    Memory,
     Services,
     Tools,
     Sandbox,
@@ -62,7 +63,6 @@ data class SettingsUiState(
     val soulText: String = "",
     val isDynamicUiEnabled: Boolean = true,
     val isOledModeEnabled: Boolean = false,
-    val isMemoryEnabled: Boolean = true,
     val memories: ImmutableList<MemoryEntry> = persistentListOf(),
     val isSchedulingEnabled: Boolean = true,
     val scheduledTasks: ImmutableList<ScheduledTask> = persistentListOf(),

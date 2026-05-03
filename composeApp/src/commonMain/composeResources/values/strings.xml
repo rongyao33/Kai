@@ -52,6 +52,7 @@
     <string name="settings_tools_none_available">No tools available on this platform.</string>
     <string name="settings_tab_general">General</string>
     <string name="settings_tab_agent">Agent</string>
+    <string name="settings_tab_memory">Memory</string>
     <string name="settings_tab_services">Services</string>
     <string name="settings_tab_tools">Tools</string>
     <string name="settings_tab_sandbox">Linux Sandbox</string>
@@ -148,6 +149,7 @@
     <string name="settings_memories_edit_title">Edit memory</string>
     <string name="settings_memories_edit_save">Save</string>
     <string name="settings_memories_edit_cancel">Cancel</string>
+    <string name="settings_memories_empty">No memories stored yet. The AI will automatically store important information during conversations.</string>
     <string name="settings_scheduled_tasks">Scheduled Tasks</string>
     <string name="settings_scheduled_tasks_description">Tasks scheduled by the AI for future execution. Ask the AI to remind you or run something later to create scheduled tasks.</string>
     <string name="settings_scheduled_tasks_cancel">Cancel task</string>

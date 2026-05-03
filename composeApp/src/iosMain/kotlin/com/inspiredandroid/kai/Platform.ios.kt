@@ -151,10 +151,8 @@ private object IosKoinHelper : KoinComponent {
 
 actual fun getAvailableTools(): List<Tool> = buildList {
     addAll(CommonTools.getCommonTools(IosKoinHelper.appSettings))
-    if (IosKoinHelper.appSettings.isMemoryEnabled()) {
-        addAll(CommonTools.getMemoryTools(IosKoinHelper.memoryStore))
-        addAll(MemorySearchTools.getMemorySearchTools(IosKoinHelper.memoryStore))
-    }
+    addAll(CommonTools.getMemoryTools(IosKoinHelper.memoryStore))
+    addAll(MemorySearchTools.getMemorySearchTools(IosKoinHelper.memoryStore))
     addAll(SkillTools.getSkillTools(IosKoinHelper.skillStore))
     addAll(MetaLearningTools.getMetaLearningTools(IosKoinHelper.skillStore, IosKoinHelper.insightIndex))
     addAll(SessionSearchTools.getSessionSearchTools(IosKoinHelper.conversationStorage))

@@ -242,10 +242,8 @@ actual fun getAvailableTools(): List<Tool> {
     val conversationStorage: ConversationStorage by inject(ConversationStorage::class.java)
 
     return buildList {
-        if (appSettings.isMemoryEnabled()) {
-            addAll(CommonTools.getMemoryTools(memoryStore))
-            addAll(MemorySearchTools.getMemorySearchTools(memoryStore))
-        }
+        addAll(CommonTools.getMemoryTools(memoryStore))
+        addAll(MemorySearchTools.getMemorySearchTools(memoryStore))
         addAll(SkillTools.getSkillTools(skillStore))
         addAll(MetaLearningTools.getMetaLearningTools(skillStore, insightIndex))
         addAll(SessionSearchTools.getSessionSearchTools(conversationStorage))
