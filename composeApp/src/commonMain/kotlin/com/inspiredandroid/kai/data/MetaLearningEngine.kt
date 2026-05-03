@@ -388,4 +388,162 @@ class MetaLearningEngine(
             "Confidence: ${"%.0f".format(confidence * 100)}%. " +
             "This ${outcome.name.lowercase()} pattern is worth preserving for future reuse."
     }
+
+    suspend fun intelligentCleanup(): CleanupReport {
+        val report = CleanupReport()
+        val now = Clock.System.now().toEpochMilliseconds()
+        val dayMs = 24L * 60 * 60 * 1000
+
+        val allExperiences = experienceStore.getRecentExperiences(Int.MAX_VALUE)
+        val experiencesToDelete = mutableListOf<ExperienceEntry>()
+        for (exp in allExperiences) {
+            val age = now - exp.createdAt
+            val value = calculateExperienceValue(exp, age, dayMs)
+            if (value < 0.2f && age > 7 * dayMs) {
+                experiencesToDelete.add(exp)
+                report.experiencesDropped++
+            }
+        }
+        if (experiencesToDelete.isNotEmpty()) {
+            val remaining = allExperiences.filter { it !in experiencesToDelete }
+            for (exp in experiencesToDelete) {
+                experienceStore.markCrystallized(exp.id, "cleanup-dropped")
+            }
+        }
+
+        val allInsights = insightIndex.getActiveInsights()
+        val insightsToDeprecate = mutableListOf<InsightEntry>()
+        for (insight in allInsights) {
+            val age = now - insight.createdAt
+            val value = calculateInsightValue(insight, age, dayMs)
+            if (value < 0.15f && age > 14 * dayMs) {
+                insightsToDeprecate.add(insight)
+                report.insightsDeprecated++
+            }
+        }
+        for (insight in insightsToDeprecate) {
+            insightIndex.deprecate(insight.id)
+        }
+
+        val allSkills = skillStore.getAllSkills()
+        for (skill in allSkills) {
+            if (skill.useCount == 0 && skill.autoCreated) {
+                val ageDays = (now - skill.createdAt) / dayMs
+                if (ageDays > 60) {
+                    skillStore.delete(skill.id)
+                    report.skillsPruned++
+                }
+            }
+        }
+
+        report.totalAnalyzed = allExperiences.size + allInsights.size + allSkills.size
+        return report
+    }
+
+    private fun calculateExperienceValue(exp: ExperienceEntry, age: Long, dayMs: Long): Float {
+        var value = 0.5f
+        when (exp.outcome) {
+            ExperienceOutcome.SUCCESS -> value += 0.3f
+            ExperienceOutcome.PARTIAL -> value += 0.1f
+            ExperienceOutcome.FAILURE -> value -= 0.1f
+        }
+        if (exp.crystallized) value += 0.2f
+        if (exp.toolSequence.size >= 5) value += 0.1f
+        val ageDays = age / dayMs
+        if (ageDays > 30) value -= 0.1f
+        if (ageDays > 60) value -= 0.2f
+        return value.coerceIn(0f, 1f)
+    }
+
+    private fun calculateInsightValue(insight: InsightEntry, age: Long, dayMs: Long): Float {
+        var value = insight.confidence
+        if (insight.triggeredCount > 5) value += 0.2f
+        if (insight.evidenceCount > 3) value += 0.1f
+        if (insight.type == InsightType.AVOIDANCE) value += 0.1f
+        if (insight.type == InsightType.PATTERN) value += 0.15f
+        val ageDays = age / dayMs
+        if (ageDays > 30 && insight.triggeredCount == 0) value -= 0.3f
+        return value.coerceIn(0f, 1f)
+    }
+
+    fun getLearningStats(): LearningStats {
+        val experiences = experienceStore.getRecentExperiences(Int.MAX_VALUE)
+        val insights = insightIndex.getActiveInsights()
+        val skills = skillStore.getAllSkills()
+        val memories = memoryStore.getAllMemories()
+
+        return LearningStats(
+            totalExperiences = experiences.size,
+            crystallizedExperiences = experiences.count { it.crystallized },
+            successRate = if (experiences.isNotEmpty()) {
+                experiences.count { it.outcome == ExperienceOutcome.SUCCESS }.toFloat() / experiences.size
+            } else 0f,
+            totalInsights = insights.size,
+            highConfidenceInsights = insights.count { it.confidence >= 0.7f },
+            totalSkills = skills.size,
+            autoCreatedSkills = skills.count { it.autoCreated },
+            totalMemories = memories.size,
+            avgSkillUseCount = if (skills.isNotEmpty()) skills.sumOf { it.useCount }.toFloat() / skills.size else 0f,
+        )
+    }
+
+    fun analyzeCapabilityGaps(): List<CapabilityGap> {
+        val gaps = mutableListOf<CapabilityGap>()
+        val experiences = experienceStore.getRecentExperiences(Int.MAX_VALUE)
+        val failures = experiences.filter { it.outcome == ExperienceOutcome.FAILURE }
+
+        val failurePatterns = mutableMapOf<String, Int>()
+        for (exp in failures) {
+            for (step in exp.toolSequence.filter { !it.success }) {
+                failurePatterns[step.toolName] = (failurePatterns[step.toolName] ?: 0) + 1
+            }
+        }
+
+        for ((toolName, count) in failurePatterns) {
+            if (count >= 3) {
+                gaps.add(CapabilityGap(
+                    area = "Tool: $toolName",
+                    failureCount = count,
+                    suggestion = "Consider improving $toolName usage strategy or finding alternatives",
+                ))
+            }
+        }
+
+        val skills = skillStore.getAllSkills()
+        val unusedAutoSkills = skills.filter { it.autoCreated && it.useCount == 0 }
+        if (unusedAutoSkills.size > 5) {
+            gaps.add(CapabilityGap(
+                area = "Skill Utilization",
+                failureCount = unusedAutoSkills.size,
+                suggestion = "${unusedAutoSkills.size} auto-created skills are unused. Consider merging or improving them.",
+            ))
+        }
+
+        return gaps.sortedByDescending { it.failureCount }
+    }
 }
+
+data class CleanupReport(
+    var totalAnalyzed: Int = 0,
+    var experiencesDropped: Int = 0,
+    var insightsDeprecated: Int = 0,
+    var skillsPruned: Int = 0,
+)
+
+data class LearningStats(
+    val totalExperiences: Int,
+    val crystallizedExperiences: Int,
+    val successRate: Float,
+    val totalInsights: Int,
+    val highConfidenceInsights: Int,
+    val totalSkills: Int,
+    val autoCreatedSkills: Int,
+    val totalMemories: Int,
+    val avgSkillUseCount: Float,
+)
+
+data class CapabilityGap(
+    val area: String,
+    val failureCount: Int,
+    val suggestion: String,
+)

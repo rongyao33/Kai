@@ -42,7 +42,6 @@ class ExperienceStore(private val appSettings: AppSettings) {
 
     private val json = SharedJson
     private val mutex = Mutex()
-    private val MAX_EXPERIENCES = 200
 
     private fun loadExperiences(): MutableList<ExperienceEntry> {
         val raw = appSettings.getExperiencesJson()
@@ -56,12 +55,7 @@ class ExperienceStore(private val appSettings: AppSettings) {
     }
 
     private fun saveExperiences(experiences: List<ExperienceEntry>) {
-        val trimmed = if (experiences.size > MAX_EXPERIENCES) {
-            experiences.sortedByDescending { it.createdAt }.take(MAX_EXPERIENCES)
-        } else {
-            experiences
-        }
-        appSettings.setExperiencesJson(json.encodeToString(trimmed))
+        appSettings.setExperiencesJson(json.encodeToString(experiences))
     }
 
     suspend fun record(

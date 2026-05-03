@@ -109,7 +109,7 @@ val appModule = module {
         SplinterlandsApi()
     }
     single<HeartbeatManager> {
-        HeartbeatManager(get(), get(), get(), get())
+        HeartbeatManager(get(), get(), get(), get(), get())
     }
     single<McpServerManager> {
         McpServerManager(get())
@@ -123,6 +123,8 @@ val appModule = module {
             memoryStore = get(),
             skillStore = get(),
             insightIndex = get(),
+            experienceStore = get(),
+            metaLearningEngine = get(),
             taskStore = get(),
             heartbeatManager = get(),
             emailStore = get(),

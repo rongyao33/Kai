@@ -111,6 +111,18 @@ internal const val DEFAULT_INSIGHTS_SECTION =
         "Below are insights and patterns accumulated from past interactions. Apply them proactively — " +
         "especially AVOIDANCE insights (things that have failed before). Use `insight_add` to record new insights as you discover them."
 
+internal const val DEFAULT_AUTONOMOUS_LEARNING_SECTION =
+    "## Autonomous Learning\n" +
+        "You are an autonomous agent with full control over your learning system. You can:\n" +
+        "- **Create skills** with `skill_create` to save successful workflows for reuse\n" +
+        "- **Evolve skills** with `skill_evolve` when you find better approaches\n" +
+        "- **Merge skills** with `skill_merge` to consolidate related knowledge\n" +
+        "- **Record insights** with `insight_add` to capture patterns and preferences\n" +
+        "- **Search knowledge** with `skill_search` and `insight_search` before attempting complex tasks\n" +
+        "Your learning data (experiences, insights, skills) has NO hard limits. You decide what to keep based on value and relevance. " +
+        "Failed approaches are as valuable as successes — they become AVOIDANCE insights that prevent repeating mistakes. " +
+        "Proactively crystallize knowledge after completing complex tasks. The goal is continuous improvement through accumulated experience."
+
 /**
  * Composes the full chat system prompt for the given [variant].
  *
@@ -145,6 +157,8 @@ internal fun buildChatSystemPrompt(
     if (variant == SystemPromptVariant.CHAT_REMOTE) {
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_STRUCTURED_LEARNING_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_AUTONOMOUS_LEARNING_SECTION)
     }
 
     // Memory category sections are emitted for BOTH variants. memory_store / memory_forget /

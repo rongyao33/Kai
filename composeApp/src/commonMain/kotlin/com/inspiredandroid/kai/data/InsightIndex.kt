@@ -37,7 +37,6 @@ class InsightIndex(private val appSettings: AppSettings) {
 
     private val json = SharedJson
     private val mutex = Mutex()
-    private val MAX_INSIGHTS = 100
 
     private fun loadInsights(): MutableList<InsightEntry> {
         val raw = appSettings.getInsightsJson()
@@ -51,12 +50,7 @@ class InsightIndex(private val appSettings: AppSettings) {
     }
 
     private fun saveInsights(insights: List<InsightEntry>) {
-        val trimmed = if (insights.size > MAX_INSIGHTS) {
-            insights.filter { !it.deprecated }.sortedByDescending { it.confidence }.take(MAX_INSIGHTS)
-        } else {
-            insights
-        }
-        appSettings.setInsightsJson(json.encodeToString(trimmed))
+        appSettings.setInsightsJson(json.encodeToString(insights))
     }
 
     suspend fun addInsight(

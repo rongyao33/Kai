@@ -32,6 +32,7 @@ class HeartbeatManager(
     private val memoryStore: MemoryStore,
     private val taskStore: TaskStore,
     private val emailStore: EmailStore? = null,
+    private val metaLearningEngine: MetaLearningEngine? = null,
 ) {
 
     private val json = SharedJson
@@ -144,6 +145,8 @@ class HeartbeatManager(
                 content = entry.content,
             )
         }
+        val learningStats = metaLearningEngine?.getLearningStats()
+        val capabilityGaps = metaLearningEngine?.analyzeCapabilityGaps()?.take(5) ?: emptyList()
         return buildHeartbeatPrompt(
             customOrDefaultPrompt = customPrompt.ifEmpty { DEFAULT_HEARTBEAT_PROMPT },
             heartbeatAdditions = heartbeatAdditions,
@@ -154,6 +157,8 @@ class HeartbeatManager(
             pendingSms = heartbeatSms,
             pendingNotifications = heartbeatNotifications,
             promotionCandidates = promotionCandidates,
+            learningStats = learningStats,
+            capabilityGaps = capabilityGaps,
         )
     }
 

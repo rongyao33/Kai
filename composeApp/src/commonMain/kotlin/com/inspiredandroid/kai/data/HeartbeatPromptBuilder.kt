@@ -51,6 +51,8 @@ internal data class HeartbeatPromotionCandidate(
  * @param pendingSms new SMS polled since the last heartbeat pickup; empty list = section omitted
  * @param pendingNotifications new notifications captured since the last heartbeat pickup; empty list = section omitted
  * @param promotionCandidates memory promotion candidates; empty list = section omitted
+ * @param learningStats learning system statistics; null = section omitted
+ * @param capabilityGaps capability gaps analysis; empty list = section omitted
  */
 internal fun buildHeartbeatPrompt(
     customOrDefaultPrompt: String,
@@ -62,6 +64,8 @@ internal fun buildHeartbeatPrompt(
     pendingSms: List<HeartbeatPendingSms>,
     pendingNotifications: List<HeartbeatPendingNotification>,
     promotionCandidates: List<HeartbeatPromotionCandidate>,
+    learningStats: LearningStats? = null,
+    capabilityGaps: List<CapabilityGap> = emptyList(),
 ): String = buildString {
     append(customOrDefaultPrompt)
     append("\n")
@@ -200,6 +204,24 @@ internal fun buildHeartbeatPrompt(
             append("): ")
             append(entry.content)
             append('\n')
+        }
+    }
+
+    if (learningStats != null) {
+        append("\n## Learning System Status\n")
+        append("Your autonomous learning statistics:\n")
+        append("- **Experiences**: ${learningStats.totalExperiences} total, ${learningStats.crystallizedExperiences} crystallized into skills\n")
+        append("- **Success Rate**: ${(learningStats.successRate * 100).toInt()}%\n")
+        append("- **Insights**: ${learningStats.totalInsights} total, ${learningStats.highConfidenceInsights} high-confidence\n")
+        append("- **Skills**: ${learningStats.totalSkills} total (${learningStats.autoCreatedSkills} auto-created), avg use: ${"%.1f".format(learningStats.avgSkillUseCount)}\n")
+        append("- **Memories**: ${learningStats.totalMemories}\n")
+    }
+
+    if (capabilityGaps.isNotEmpty()) {
+        append("\n## Capability Gaps\n")
+        append("Areas that may need improvement:\n")
+        for (gap in capabilityGaps) {
+            append("- **${gap.area}**: ${gap.failureCount} failures — ${gap.suggestion}\n")
         }
     }
 }
