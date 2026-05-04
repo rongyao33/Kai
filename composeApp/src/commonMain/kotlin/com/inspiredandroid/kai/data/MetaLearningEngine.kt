@@ -10,14 +10,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
-private fun SkillCategory.toMemoryCategory(): MemoryCategory = when (this) {
-    SkillCategory.WORKFLOW -> MemoryCategory.LEARNING
-    SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
-    SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
-    SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
-    SkillCategory.OTHER -> MemoryCategory.GENERAL
-}
-
 data class ToolExecutionRecord(
     val toolName: String,
     val argsSummary: String,
@@ -214,7 +206,12 @@ class MetaLearningEngine(
             semanticMemory?.add(
                 content = suggestion.suggestedDescription,
                 metadata = SemanticMetadata(
-                    category = suggestion.suggestedCategory.toMemoryCategory(),
+                    category = when (suggestion.suggestedCategory) {
+                        SkillCategory.WORKFLOW, SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
+                        SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
+                        SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
+                        else -> MemoryCategory.GENERAL
+                    },
                     keywords = suggestion.suggestedTags,
                     confidence = suggestion.confidence,
                 ),
@@ -289,7 +286,12 @@ class MetaLearningEngine(
             semanticMemory?.add(
                 content = suggestion.suggestedDescription,
                 metadata = SemanticMetadata(
-                    category = suggestion.suggestedCategory.toMemoryCategory(),
+                    category = when (suggestion.suggestedCategory) {
+                        SkillCategory.WORKFLOW, SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
+                        SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
+                        SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
+                        else -> MemoryCategory.GENERAL
+                    },
                     keywords = suggestion.suggestedTags,
                     confidence = suggestion.confidence,
                 ),
@@ -614,7 +616,7 @@ class MetaLearningEngine(
             avgSkillUseCount = if (skills.isNotEmpty()) skills.sumOf { it.useCount }.toFloat() / skills.size else 0f,
             semanticMemories = semanticMemory?.getStats()?.totalEntries ?: 0,
             knowledgeGraphNodes = knowledgeGraph?.getStats()?.totalNodes ?: 0,
-            episodicEvents = episodicMemory?.getStats()?.totalEvents ?: 0,
+            episodicEvents = episodicMemory?.getEventStats()?.totalEvents ?: 0,
         )
     }
 

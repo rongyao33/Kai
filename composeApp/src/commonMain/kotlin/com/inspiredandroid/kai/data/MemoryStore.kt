@@ -121,9 +121,9 @@ class MemoryStore(private val appSettings: AppSettings) {
 
             MemoryDecayStrategy.NEURO_SCIENCE -> {
                 val shortTermDecay = Math.exp(-ageDays / 1.0)
-                val longTermRetention = 1 - Math.exp(-ageDays / 30.0)
+                val longTermRetention = 1.0 - Math.exp(-ageDays / 30.0)
                 val neuroScienceDecay = shortTermDecay * 0.3 + longTermRetention * 0.7
-                baseConfidence * (1 - neuroScienceDecay * (1 - DEFAULT_DECAY_RATE))
+                (baseConfidence * (1.0 - neuroScienceDecay * (1.0 - DEFAULT_DECAY_RATE))).toFloat()
             }
         }
 
