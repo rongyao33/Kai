@@ -47,10 +47,10 @@ class EmailStore(private val appSettings: AppSettings) {
     }
 
     // Sync state
-    fun getSyncState(accountId: String): EmailSyncState {
+    suspend fun getSyncState(accountId: String): EmailSyncState = mutex.withLock {
         val raw = appSettings.getEmailSyncStateJson(accountId)
-        if (raw.isEmpty()) return EmailSyncState(accountId = accountId)
-        return try {
+        if (raw.isEmpty()) return@withLock EmailSyncState(accountId = accountId)
+        try {
             json.decodeFromString<EmailSyncState>(raw)
         } catch (_: Exception) {
             EmailSyncState(accountId = accountId)
@@ -65,13 +65,13 @@ class EmailStore(private val appSettings: AppSettings) {
         appSettings.setEmailSyncStateJson(accountId, "")
     }
 
-    fun getAllSyncStates(): Map<String, EmailSyncState> = getAccounts().associate { it.id to getSyncState(it.id) }
+    suspend fun getAllSyncStates(): Map<String, EmailSyncState> = getAccounts().associate { it.id to getSyncState(it.id) }
 
     // Capped FIFO so a disabled or slow heartbeat can't let the buffer grow unbounded.
-    fun getPending(): List<EmailMessage> {
+    suspend fun getPending(): List<EmailMessage> = mutex.withLock {
         val raw = appSettings.getEmailPendingJson()
-        if (raw.isEmpty()) return emptyList()
-        return try {
+        if (raw.isEmpty()) return@withLock emptyList()
+        try {
             json.decodeFromString<List<EmailMessage>>(raw)
         } catch (_: Exception) {
             emptyList()

@@ -5,7 +5,8 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class GeminiChatResponseDto(
-    val candidates: List<Candidate>,
+    val candidates: List<Candidate> = emptyList(),
+    val promptFeedback: PromptFeedback? = null,
 ) {
     @Serializable
     data class Candidate(val content: Content? = null)
@@ -28,9 +29,20 @@ data class GeminiChatResponseDto(
         val name: String,
         val args: Map<String, JsonElement>? = null,
     )
+
+    @Serializable
+    data class PromptFeedback(
+        val blockReason: String? = null,
+    )
 }
 
-fun GeminiChatResponseDto.extractText(): String = candidates.firstOrNull()?.content?.parts
-    ?.filterNot { it.isThought }
-    ?.joinToString("\n") { it.text ?: "" }
-    ?: ""
+fun GeminiChatResponseDto.extractText(): String {
+    promptFeedback?.blockReason?.let { reason ->
+        return "[Content blocked: $reason]"
+    }
+    return candidates.firstOrNull()?.content?.parts
+        ?.filterNot { it.isThought || it.functionCall != null }
+        ?.mapNotNull { it.text }
+        ?.joinToString("\n")
+        ?: ""
+}

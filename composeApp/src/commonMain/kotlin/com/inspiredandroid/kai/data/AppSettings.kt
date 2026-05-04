@@ -530,6 +530,30 @@ class AppSettings(private val settings: Settings) {
         settings.putString(KEY_INSIGHTS, json)
     }
 
+    fun getEpisodicMemoryJson(): String = settings.getString(KEY_EPISODIC_MEMORY, "[]")
+
+    fun setEpisodicMemoryJson(json: String) {
+        settings.putString(KEY_EPISODIC_MEMORY, json)
+    }
+
+    fun getSemanticMemoryJson(): String = settings.getString(KEY_SEMANTIC_MEMORY, "[]")
+
+    fun setSemanticMemoryJson(json: String) {
+        settings.putString(KEY_SEMANTIC_MEMORY, json)
+    }
+
+    fun getKnowledgeGraphNodesJson(): String = settings.getString(KEY_KG_NODES, "[]")
+
+    fun setKnowledgeGraphNodesJson(json: String) {
+        settings.putString(KEY_KG_NODES, json)
+    }
+
+    fun getKnowledgeGraphEdgesJson(): String = settings.getString(KEY_KG_EDGES, "[]")
+
+    fun setKnowledgeGraphEdgesJson(json: String) {
+        settings.putString(KEY_KG_EDGES, json)
+    }
+
     // Scheduling
     fun isSchedulingEnabled(): Boolean = settings.getBoolean(KEY_SCHEDULING_ENABLED, true)
 
@@ -1231,6 +1255,10 @@ class AppSettings(private val settings: Settings) {
         const val KEY_SKILLS = "agent_skills"
         const val KEY_EXPERIENCES = "agent_experiences"
         const val KEY_INSIGHTS = "agent_insights"
+        const val KEY_EPISODIC_MEMORY = "episodic_memory"
+        const val KEY_SEMANTIC_MEMORY = "semantic_memory"
+        const val KEY_KG_NODES = "kg_nodes"
+        const val KEY_KG_EDGES = "kg_edges"
         const val KEY_SCHEDULED_TASKS = "scheduled_tasks"
         const val KEY_SCHEDULING_ENABLED = "scheduling_enabled"
         const val KEY_DYNAMIC_UI_ENABLED = "dynamic_ui_enabled"

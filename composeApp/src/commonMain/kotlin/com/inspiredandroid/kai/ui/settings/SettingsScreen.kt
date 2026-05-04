@@ -110,12 +110,16 @@ import com.inspiredandroid.kai.SandboxController
 import com.inspiredandroid.kai.TerminalLine
 import com.inspiredandroid.kai.Version
 import com.inspiredandroid.kai.data.EmailAccount
+import com.inspiredandroid.kai.data.ExperienceEntry
+import com.inspiredandroid.kai.data.ExperienceOutcome
 import com.inspiredandroid.kai.data.HeartbeatLogEntry
 import com.inspiredandroid.kai.data.ImportSection
+import com.inspiredandroid.kai.data.InsightEntry
 import com.inspiredandroid.kai.data.MemoryEntry
 import com.inspiredandroid.kai.data.ScheduledTask
 import com.inspiredandroid.kai.data.Service
 import com.inspiredandroid.kai.data.SharedJson
+import com.inspiredandroid.kai.data.SkillEntry
 import com.inspiredandroid.kai.data.TaskStatus
 import com.inspiredandroid.kai.data.TaskTrigger
 import com.inspiredandroid.kai.data.detectImportSections
@@ -143,6 +147,7 @@ import com.inspiredandroid.kai.ui.kaiAdaptiveCardBorder
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardColors
 import com.inspiredandroid.kai.ui.kaiAdaptiveCardSurface
 import com.inspiredandroid.kai.ui.sandbox.SandboxProgressRow
+import com.inspiredandroid.kai.ui.sandbox.SandboxTabsContent
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
@@ -368,6 +373,8 @@ fun SettingsScreenContent(
             is PendingDeletion.EmailAccount -> emailRemovedMsg
             is PendingDeletion.Service -> serviceRemovedMsg
             is PendingDeletion.McpServer -> mcpServerRemovedMsg
+            is PendingDeletion.Skill -> "Skill deleted"
+            is PendingDeletion.Insight -> "Insight deleted"
         }
         val result = snackbarHostState.showSnackbar(
             message = message,
@@ -543,73 +550,86 @@ private fun SandboxSettingsCard(
     onInstallPackages: () -> Unit,
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
-    SettingsCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Alpine Linux",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                if (sandboxState.sandboxReady) {
-                    if (sandboxState.sandboxDiskUsageMB > 0) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SettingsCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Alpine Linux",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    if (sandboxState.sandboxReady) {
+                        if (sandboxState.sandboxDiskUsageMB > 0) {
+                            Text(
+                                text = stringResource(Res.string.settings_sandbox_disk_usage, sandboxState.sandboxDiskUsageMB),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Spacer(Modifier.height(4.dp))
                         Text(
-                            text = stringResource(Res.string.settings_sandbox_disk_usage, sandboxState.sandboxDiskUsageMB),
+                            text = stringResource(Res.string.settings_sandbox_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                } else {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(Res.string.settings_sandbox_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                }
+                if (sandboxState.sandboxReady) {
+                    Switch(
+                        checked = sandboxState.isSandboxEnabled,
+                        onCheckedChange = onToggleSandbox,
                     )
                 }
             }
-            if (sandboxState.sandboxReady) {
-                Switch(
-                    checked = sandboxState.isSandboxEnabled,
-                    onCheckedChange = onToggleSandbox,
+
+            if (sandboxState.sandboxProgress != null) {
+                SandboxProgressRow(sandboxState.sandboxProgress, sandboxState.sandboxStatusText, onCancelSandbox)
+            } else if (sandboxState.isWorking) {
+                SandboxProgressRow(null, sandboxState.sandboxStatusText, onCancelSandbox)
+            } else if (sandboxState.hasError) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = sandboxState.sandboxStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
+            }
+
+            if (!sandboxState.isWorking) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!sandboxState.sandboxReady) {
+                        Button(onClick = onSetupSandbox, modifier = Modifier.handCursor()) {
+                            Text(stringResource(Res.string.settings_sandbox_install))
+                        }
+                    } else {
+                        if (!sandboxState.sandboxPackagesInstalled) {
+                            OutlinedButton(onClick = onInstallPackages, modifier = Modifier.handCursor()) {
+                                Text(stringResource(Res.string.settings_sandbox_install_packages))
+                            }
+                        }
+                        OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.handCursor()) {
+                            Text(stringResource(Res.string.settings_sandbox_uninstall))
+                        }
+                    }
+                }
             }
         }
 
-        if (sandboxState.sandboxProgress != null) {
-            SandboxProgressRow(sandboxState.sandboxProgress, sandboxState.sandboxStatusText, onCancelSandbox)
-        } else if (sandboxState.isWorking) {
-            SandboxProgressRow(null, sandboxState.sandboxStatusText, onCancelSandbox)
-        } else if (sandboxState.hasError) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = sandboxState.sandboxStatusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-
-        if (!sandboxState.isWorking) {
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!sandboxState.sandboxReady) {
-                    Button(onClick = onSetupSandbox, modifier = Modifier.handCursor()) {
-                        Text(stringResource(Res.string.settings_sandbox_install))
-                    }
-                } else {
-                    if (!sandboxState.sandboxPackagesInstalled) {
-                        OutlinedButton(onClick = onInstallPackages, modifier = Modifier.handCursor()) {
-                            Text(stringResource(Res.string.settings_sandbox_install_packages))
-                        }
-                    }
-                    OutlinedButton(onClick = { showResetDialog = true }, modifier = Modifier.handCursor()) {
-                        Text(stringResource(Res.string.settings_sandbox_uninstall))
-                    }
-                }
+        if (sandboxState.sandboxReady && sandboxState.isSandboxEnabled) {
+            SettingsCard(modifier = Modifier.fillMaxWidth()) {
+                SandboxTabsContent(
+                    sandboxState = sandboxState,
+                    onSetupSandbox = onSetupSandbox,
+                    onCancelSandbox = onCancelSandbox,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -1774,6 +1794,23 @@ private fun MemoryContent(uiState: SettingsUiState, actions: SettingsActions) {
                 memories = uiState.memories,
                 onDeleteMemory = actions.onDeleteMemory,
                 onUpdateMemory = actions.onUpdateMemory,
+            )
+        }
+        SettingsCard {
+            SkillListSection(
+                skills = uiState.skills,
+                onDeleteSkill = actions.onDeleteSkill,
+            )
+        }
+        SettingsCard {
+            InsightListSection(
+                insights = uiState.insights,
+                onDeleteInsight = actions.onDeleteInsight,
+            )
+        }
+        SettingsCard {
+            ExperienceListSection(
+                experiences = uiState.experiences,
             )
         }
         SettingsCard {
@@ -3178,6 +3215,190 @@ private fun LearningDataStatItem(label: String, count: Int) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun SkillListSection(
+    skills: ImmutableList<SkillEntry>,
+    onDeleteSkill: (String) -> Unit,
+) {
+    val skillsByCategory = remember(skills) {
+        skills.filter { !it.deprecated }.groupBy { it.category }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Skills",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Learned skills organized by category. Skills are auto-created from experiences or manually by the AI.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (skillsByCategory.isEmpty()) {
+            Text(
+                text = "No skills yet. Skills will appear here as the AI learns from conversations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            )
+        } else {
+            skillsByCategory.forEach { (category, categorySkills) ->
+                Text(
+                    text = category.name.lowercase().replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(4.dp))
+                categorySkills.sortedByDescending { it.useCount }.forEach { skill ->
+                    SettingsListItem(
+                        title = skill.name,
+                        subtitle = "${skill.description}${if (skill.autoCreated) " · Auto" else ""}${if (skill.useCount > 0) " · Used ${skill.useCount}x" else ""}",
+                        onDelete = { onDeleteSkill(skill.id) },
+                        deleteContentDescription = "Delete skill",
+                        subtitleMaxLines = 2,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightListSection(
+    insights: ImmutableList<InsightEntry>,
+    onDeleteInsight: (String) -> Unit,
+) {
+    val insightsByType = remember(insights) {
+        insights.filter { !it.deprecated }.groupBy { it.type }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Insights",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Patterns and preferences discovered by the AI. Insights are auto-generated from successful experiences.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (insightsByType.isEmpty()) {
+            Text(
+                text = "No insights yet. Insights will appear as the AI identifies patterns from conversations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            )
+        } else {
+            insightsByType.forEach { (type, typeInsights) ->
+                Text(
+                    text = type.name.lowercase().replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(4.dp))
+                typeInsights.sortedByDescending { it.confidence }.forEach { insight ->
+                    SettingsListItem(
+                        title = insight.insight,
+                        subtitle = "Confidence: ${(insight.confidence * 100).toInt()}%${if (insight.triggeredCount > 0) " · Triggered ${insight.triggeredCount}x" else ""}${if (insight.evidenceCount > 1) " · Evidence: ${insight.evidenceCount}" else ""}",
+                        onDelete = { onDeleteInsight(insight.id) },
+                        deleteContentDescription = "Delete insight",
+                        subtitleMaxLines = 2,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExperienceListSection(
+    experiences: ImmutableList<ExperienceEntry>,
+) {
+    val recentExperiences = remember(experiences) {
+        experiences.sortedByDescending { it.createdAt }.take(10)
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Recent Experiences",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Tool execution sequences recorded during conversations. Experiences feed into skill crystallization.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (recentExperiences.isEmpty()) {
+            Text(
+                text = "No experiences recorded yet. Experiences will appear as the AI uses tools in conversations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+            )
+        } else {
+            recentExperiences.forEach { exp ->
+                val outcomeIcon = when (exp.outcome) {
+                    ExperienceOutcome.SUCCESS -> "✓"
+                    ExperienceOutcome.PARTIAL -> "◐"
+                    ExperienceOutcome.FAILURE -> "✗"
+                }
+                val outcomeColor = when (exp.outcome) {
+                    ExperienceOutcome.SUCCESS -> MaterialTheme.colorScheme.primary
+                    ExperienceOutcome.PARTIAL -> MaterialTheme.colorScheme.tertiary
+                    ExperienceOutcome.FAILURE -> MaterialTheme.colorScheme.error
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = outcomeIcon,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = outcomeColor,
+                        modifier = Modifier.width(20.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = exp.taskSummary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${exp.toolSequence.size} steps${if (exp.crystallized) " · Crystallized" else ""}${if (exp.tags.isNotEmpty()) " · ${exp.tags.take(3).joinToString()}" else ""}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (experiences.size > 10) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Showing 10 of ${experiences.size} experiences",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

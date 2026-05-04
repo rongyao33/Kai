@@ -1,14 +1,19 @@
 package com.inspiredandroid.kai.tools
 
+import com.inspiredandroid.kai.SandboxSessions
+import com.inspiredandroid.kai.data.currentConversationIdOrNull
 import com.inspiredandroid.kai.network.tools.ParameterSchema
 import com.inspiredandroid.kai.network.tools.Tool
 import com.inspiredandroid.kai.network.tools.ToolInfo
 import com.inspiredandroid.kai.network.tools.ToolSchema
+import com.inspiredandroid.kai.sandbox.LinuxSandboxManager
+import com.inspiredandroid.kai.sandbox.SandboxState
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_git_cli_description
 import kai.composeapp.generated.resources.tool_git_cli_name
+import org.koin.java.KoinJavaComponent.inject
 
-private const val TOOL_DESCRIPTION = """Execute Git commands to manage repositories. Git is pre-installed in the Linux sandbox.
+private const val TOOL_DESCRIPTION = """Execute Git commands in the Alpine Linux sandbox. Git is pre-installed and fully functional.
 
 Common commands:
 - status: Check repository status
@@ -37,6 +42,8 @@ Examples:
 - command: "commit -m 'message'" -> git commit -m 'message'"""
 
 object GitCliTool : Tool {
+    private val sandboxManager: LinuxSandboxManager by inject(LinuxSandboxManager::class.java)
+
     override val schema = ToolSchema(
         name = "git_cli",
         description = TOOL_DESCRIPTION,
@@ -52,15 +59,30 @@ object GitCliTool : Tool {
         val repoPath = args["repo_path"] as? String ?: "/root"
         val timeoutSeconds = ((args["timeout"] as? Number)?.toLong() ?: 30L).coerceIn(1, 120L)
 
-        val fullCommand = buildGitCommand(command, repoPath)
+        val state = sandboxManager.state.value
+        if (state !is SandboxState.Ready) {
+            return mapOf(
+                "success" to false,
+                "error" to "Linux sandbox is not ready. Current state: $state",
+            )
+        }
 
-        return mapOf(
-            "success" to true,
-            "message" to "Git command prepared. Use execute_shell_command to run: $fullCommand",
-            "command" to fullCommand,
-            "repo_path" to repoPath,
-            "note" to "Git is available in the Linux sandbox. Run this command using execute_shell_command.",
-        )
+        val fullCommand = buildGitCommand(command, repoPath)
+        val sessionId = currentConversationIdOrNull() ?: SandboxSessions.DEFAULT
+
+        return try {
+            sandboxManager.shellFor(sessionId).run(
+                command = fullCommand,
+                timeoutSeconds = timeoutSeconds,
+                displayCommand = fullCommand,
+            )
+        } catch (e: Exception) {
+            mapOf(
+                "success" to false,
+                "error" to (e.message ?: "Git command execution failed"),
+                "command" to fullCommand,
+            )
+        }
     }
 
     private fun buildGitCommand(command: String, repoPath: String): String {

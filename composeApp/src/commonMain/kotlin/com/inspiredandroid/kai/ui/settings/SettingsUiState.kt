@@ -3,11 +3,14 @@ package com.inspiredandroid.kai.ui.settings
 import androidx.compose.runtime.Immutable
 import com.inspiredandroid.kai.data.EmailAccount
 import com.inspiredandroid.kai.data.EmailSyncState
+import com.inspiredandroid.kai.data.ExperienceEntry
 import com.inspiredandroid.kai.data.HeartbeatLogEntry
+import com.inspiredandroid.kai.data.InsightEntry
 import com.inspiredandroid.kai.data.MemoryEntry
 import com.inspiredandroid.kai.data.ScheduledTask
 import com.inspiredandroid.kai.data.Service
 import com.inspiredandroid.kai.data.ServiceEntry
+import com.inspiredandroid.kai.data.SkillEntry
 import com.inspiredandroid.kai.data.SmsSyncState
 import com.inspiredandroid.kai.inference.DownloadError
 import com.inspiredandroid.kai.inference.LocalModel
@@ -115,6 +118,9 @@ data class SettingsUiState(
     val pendingDeletion: PendingDeletion? = null,
     val showClearLearningDataDialog: Boolean = false,
     val learningDataStats: LearningDataStats = LearningDataStats(),
+    val skills: ImmutableList<SkillEntry> = persistentListOf(),
+    val experiences: ImmutableList<ExperienceEntry> = persistentListOf(),
+    val insights: ImmutableList<InsightEntry> = persistentListOf(),
 )
 
 @Immutable
@@ -148,6 +154,8 @@ sealed interface PendingDeletion {
     data class EmailAccount(val id: String) : PendingDeletion
     data class Service(val instanceId: String) : PendingDeletion
     data class McpServer(val serverId: String) : PendingDeletion
+    data class Skill(val id: String) : PendingDeletion
+    data class Insight(val id: String) : PendingDeletion
 }
 
 sealed interface ImportResult {

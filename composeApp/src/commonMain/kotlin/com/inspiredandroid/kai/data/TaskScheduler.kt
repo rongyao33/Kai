@@ -125,6 +125,7 @@ class TaskScheduler(
             val response = dataRepository.askWithTools(heartbeatPrompt, manager.getConfig().heartbeatInstanceId)
             manager.markHeartbeatExecuted()
             manager.recordHeartbeat(success = true)
+            manager.performLearningMaintenance()
             if (response.isNotBlank() && "HEARTBEAT_OK" !in response) {
                 dataRepository.addAssistantMessage(response)
                 // Push-notify only when the user won't see the in-app banner.
@@ -149,10 +150,6 @@ class TaskScheduler(
             // that arrived during the call stay pending for the next heartbeat.
             if (pendingEmails.isNotEmpty()) {
                 emailStore?.let { store ->
-                    store.removePending(pendingEmails)
-                    // Advance the per-account delivery watermark so the user's
-                    // next `check_email` call won't re-surface the same UIDs
-                    // the heartbeat just summarised.
                     val maxUidByAccount = pendingEmails
                         .groupBy { it.accountId }
                         .mapValues { (_, msgs) -> msgs.maxOf { it.uid } }
@@ -162,6 +159,7 @@ class TaskScheduler(
                             store.updateSyncState(current.copy(lastSeenUid = maxUid))
                         }
                     }
+                    store.removePending(pendingEmails)
                 }
             }
             if (pendingSms.isNotEmpty()) {

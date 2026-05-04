@@ -216,7 +216,6 @@ private fun AppContent(
                             onNavigateToSettings = {
                                 navController.navigate(Settings)
                             },
-                            isSandboxAvailable = currentPlatform is Platform.Mobile.Android,
                             navigationTabBar = if (showTabBar) navigationTabBar else null,
                         )
                     }

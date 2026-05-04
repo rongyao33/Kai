@@ -1,5 +1,6 @@
 package com.inspiredandroid.kai.data
 
+import com.inspiredandroid.kai.util.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
@@ -84,27 +85,17 @@ class TaskStore(private val appSettings: AppSettings) {
         task
     }
 
-    fun getAllTasks(): List<ScheduledTask> = loadTasks()
+    suspend fun getAllTasks(): List<ScheduledTask> = mutex.withLock { loadTasks() }
 
-    /**
-     * All PENDING non-heartbeat tasks — what the user thinks of as "scheduled". Heartbeat-
-     * triggered tasks are surfaced separately via [getPendingHeartbeatAdditions].
-     */
-    fun getPendingTasks(): List<ScheduledTask> = loadTasks().filter { it.status == TaskStatus.PENDING && it.trigger != TaskTrigger.HEARTBEAT }
+    suspend fun getPendingTasks(): List<ScheduledTask> = mutex.withLock { loadTasks().filter { it.status == TaskStatus.PENDING && it.trigger != TaskTrigger.HEARTBEAT } }
 
-    /** Standing additions to every heartbeat self-check. */
-    fun getPendingHeartbeatAdditions(): List<ScheduledTask> = loadTasks().filter { it.status == TaskStatus.PENDING && it.trigger == TaskTrigger.HEARTBEAT }
+    suspend fun getPendingHeartbeatAdditions(): List<ScheduledTask> = mutex.withLock { loadTasks().filter { it.status == TaskStatus.PENDING && it.trigger == TaskTrigger.HEARTBEAT } }
 
-    /**
-     * Both pending scheduled tasks and heartbeat additions from a single load. Hot-path
-     * callers (chat system prompt, heartbeat prompt) need both lists per invocation;
-     * combining avoids re-parsing the tasks JSON twice.
-     */
-    fun getPendingTasksPartitioned(): PendingTaskPartition {
+    suspend fun getPendingTasksPartitioned(): PendingTaskPartition = mutex.withLock {
         val (additions, scheduled) = loadTasks()
             .filter { it.status == TaskStatus.PENDING }
             .partition { it.trigger == TaskTrigger.HEARTBEAT }
-        return PendingTaskPartition(scheduled = scheduled, heartbeatAdditions = additions)
+        PendingTaskPartition(scheduled = scheduled, heartbeatAdditions = additions)
     }
 
     suspend fun updateTask(task: ScheduledTask): ScheduledTask = mutex.withLock {
@@ -124,9 +115,9 @@ class TaskStore(private val appSettings: AppSettings) {
         removed
     }
 
-    fun getDueTasks(): List<ScheduledTask> {
+    suspend fun getDueTasks(): List<ScheduledTask> = mutex.withLock {
         val now = Clock.System.now().toEpochMilliseconds()
-        return loadTasks().filter {
+        loadTasks().filter {
             it.trigger != TaskTrigger.HEARTBEAT &&
                 it.scheduledAtEpochMs <= now &&
                 it.status == TaskStatus.PENDING

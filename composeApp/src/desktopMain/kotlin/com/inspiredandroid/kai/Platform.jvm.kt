@@ -25,10 +25,12 @@ import com.inspiredandroid.kai.mcp.McpServerManager
 import com.inspiredandroid.kai.network.tools.Tool
 import com.inspiredandroid.kai.network.tools.ToolInfo
 import com.inspiredandroid.kai.tools.CommonTools
+import com.inspiredandroid.kai.tools.DeepResearchTool
 import com.inspiredandroid.kai.tools.EmailTools
 import com.inspiredandroid.kai.tools.HeartbeatTools
 import com.inspiredandroid.kai.tools.MemorySearchTools
 import com.inspiredandroid.kai.tools.MetaLearningTools
+import com.inspiredandroid.kai.tools.ParallelExecuteTool
 import com.inspiredandroid.kai.tools.ProcessManagerTool
 import com.inspiredandroid.kai.tools.SchedulingTools
 import com.inspiredandroid.kai.tools.SessionSearchTools
@@ -141,7 +143,12 @@ actual fun createSecureSettings(): Settings = EncryptedFileSettings()
 
 actual fun createLegacySettings(): Settings? = null // Same storage location, no migration needed
 
-actual fun getPlatformToolDefinitions(): List<ToolInfo> = listOf(ShellCommandTool.toolInfo, ProcessManagerTool.toolInfo) + CommonTools.commonToolDefinitions
+actual fun getPlatformToolDefinitions(): List<ToolInfo> = listOf(
+    ShellCommandTool.toolInfo,
+    ProcessManagerTool.toolInfo,
+    DeepResearchTool.toolInfo,
+    ParallelExecuteTool.toolInfo,
+) + CommonTools.commonToolDefinitions
 
 actual fun getAvailableTools(): List<Tool> {
     val appSettings: AppSettings by inject(AppSettings::class.java)
@@ -165,6 +172,12 @@ actual fun getAvailableTools(): List<Tool> {
         if (appSettings.isToolEnabled(ShellCommandTool.schema.name, defaultEnabled = false)) {
             add(ShellCommandTool)
             add(ProcessManagerTool)
+        }
+        if (appSettings.isToolEnabled(DeepResearchTool.schema.name)) {
+            add(DeepResearchTool)
+        }
+        if (appSettings.isToolEnabled(ParallelExecuteTool.schema.name)) {
+            add(ParallelExecuteTool)
         }
         if (appSettings.isEmailEnabled()) {
             addAll(EmailTools.getEmailTools(emailStore))

@@ -64,7 +64,7 @@ class SettingsViewModel(
     private var hasCheckedInitialConnection = false
     private var pendingDeleteJob: Job? = null
 
-    private fun buildFullState(): SettingsUiState = SettingsUiState(
+    private suspend fun buildFullState(): SettingsUiState = SettingsUiState(
         configuredServices = buildConfiguredServiceEntries().toImmutableList(),
         availableServicesToAdd = computeAvailableServices().toImmutableList(),
         tools = dataRepository.getToolDefinitions().toImmutableList(),
@@ -120,6 +120,9 @@ class SettingsViewModel(
         localDownloadingModelId = dataRepository.getLocalDownloadingModelId()?.value,
         localDownloadProgress = dataRepository.getLocalDownloadProgress()?.value,
         modelContextTokens = buildModelContextTokensMap(),
+        skills = dataRepository.getSkills().toImmutableList(),
+        experiences = dataRepository.getExperiences().toImmutableList(),
+        insights = dataRepository.getInsights().toImmutableList(),
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -177,9 +180,17 @@ class SettingsViewModel(
         onUndoDelete = ::onUndoDelete,
         onShowClearLearningDataDialog = ::onShowClearLearningDataDialog,
         onClearAllLearningData = ::onClearAllLearningData,
+        onDeleteSkill = ::onDeleteSkill,
+        onDeleteInsight = ::onDeleteInsight,
     )
 
-    private val _state = MutableStateFlow(buildFullState())
+    private val _state = MutableStateFlow(SettingsUiState())
+
+    init {
+        viewModelScope.launch(backgroundDispatcher) {
+            _state.update { buildFullState() }
+        }
+    }
 
     val state = _state.stateIn(
         scope = viewModelScope,
@@ -238,12 +249,12 @@ class SettingsViewModel(
 
     private fun fetchSponsors() {
         viewModelScope.launch(backgroundDispatcher) {
-            try {
-                val client = httpClient {
-                    install(ContentNegotiation) {
-                        json(Json { ignoreUnknownKeys = true })
-                    }
+            val client = httpClient {
+                install(ContentNegotiation) {
+                    json(Json { ignoreUnknownKeys = true })
                 }
+            }
+            try {
                 val response = client.get("https://ghs.vercel.app/v3/sponsors/SimonSchubert")
                 if (response.status.isSuccess()) {
                     val dto = response.body<SponsorsResponseDto>()
@@ -255,7 +266,8 @@ class SettingsViewModel(
                     }
                 }
             } catch (_: Exception) {
-                // Silently ignore - sponsors are non-critical
+            } finally {
+                client.close()
             }
         }
     }
@@ -664,7 +676,9 @@ class SettingsViewModel(
     private fun onImportSettings(bytes: ByteArray, sections: Set<ImportSection>, replace: Boolean): ImportResult = try {
         val currentTab = _state.value.currentTab
         val errors = dataRepository.importSettingsFromJson(bytes.decodeToString(), sections, replace)
-        _state.value = buildFullState().copy(currentTab = currentTab)
+        viewModelScope.launch(backgroundDispatcher) {
+            _state.update { buildFullState().copy(currentTab = currentTab) }
+        }
         checkAllConnections()
         connectEnabledMcpServers()
         if (errors == 0) ImportResult.Success else ImportResult.PartialSuccess(errors)
@@ -853,6 +867,26 @@ class SettingsViewModel(
                 _state.update { it.copy(pendingDeletion = null) }
                 refreshMcpServers()
             }
+
+            is PendingDeletion.Skill -> {
+                dataRepository.deleteSkill(deletion.id)
+                _state.update {
+                    it.copy(
+                        skills = dataRepository.getSkills().toImmutableList(),
+                        pendingDeletion = null,
+                    )
+                }
+            }
+
+            is PendingDeletion.Insight -> {
+                dataRepository.deleteInsight(deletion.id)
+                _state.update {
+                    it.copy(
+                        insights = dataRepository.getInsights().toImmutableList(),
+                        pendingDeletion = null,
+                    )
+                }
+            }
         }
     }
 
@@ -864,13 +898,15 @@ class SettingsViewModel(
 
     private fun onShowClearLearningDataDialog(show: Boolean) {
         if (show) {
-            val stats = LearningDataStats(
-                memoryCount = dataRepository.getMemories().size,
-                experienceCount = dataRepository.getExperiences().size,
-                insightCount = dataRepository.getInsights().size,
-                skillCount = dataRepository.getSkills().size,
-            )
-            _state.update { it.copy(showClearLearningDataDialog = true, learningDataStats = stats) }
+            viewModelScope.launch(backgroundDispatcher) {
+                val stats = LearningDataStats(
+                    memoryCount = dataRepository.getMemories().size,
+                    experienceCount = dataRepository.getExperiences().size,
+                    insightCount = dataRepository.getInsights().size,
+                    skillCount = dataRepository.getSkills().size,
+                )
+                _state.update { it.copy(showClearLearningDataDialog = true, learningDataStats = stats) }
+            }
         } else {
             _state.update { it.copy(showClearLearningDataDialog = false) }
         }
@@ -884,20 +920,43 @@ class SettingsViewModel(
                     showClearLearningDataDialog = false,
                     memories = dataRepository.getMemories().toImmutableList(),
                     learningDataStats = LearningDataStats(),
+                    skills = dataRepository.getSkills().toImmutableList(),
+                    experiences = dataRepository.getExperiences().toImmutableList(),
+                    insights = dataRepository.getInsights().toImmutableList(),
                 )
             }
+        }
+    }
+
+    private fun onDeleteSkill(id: String) {
+        commitPendingDeletion()
+        _state.update { it.copy(pendingDeletion = PendingDeletion.Skill(id)) }
+        pendingDeleteJob = viewModelScope.launch(backgroundDispatcher) {
+            delay(4.seconds)
+            executeDeletion(PendingDeletion.Skill(id))
+        }
+    }
+
+    private fun onDeleteInsight(id: String) {
+        commitPendingDeletion()
+        _state.update { it.copy(pendingDeletion = PendingDeletion.Insight(id)) }
+        pendingDeleteJob = viewModelScope.launch(backgroundDispatcher) {
+            delay(4.seconds)
+            executeDeletion(PendingDeletion.Insight(id))
         }
     }
 
     override fun onCleared() {
         pendingDeleteJob?.cancel()
         pendingDeleteJob = null
+        connectionCheckJobs.values.forEach { it.cancel() }
+        connectionCheckJobs.clear()
         val deletion = _state.value.pendingDeletion ?: run {
             super.onCleared()
             return
         }
         _state.update { it.copy(pendingDeletion = null) }
-        CoroutineScope(backgroundDispatcher).launch {
+        viewModelScope.launch(backgroundDispatcher) {
             executeDeletion(deletion)
         }
         super.onCleared()

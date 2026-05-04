@@ -102,6 +102,9 @@ object SkillTools {
             if (results.isEmpty()) {
                 return mapOf("success" to true, "results" to emptyList<Any>(), "message" to "No skills found matching '$query'")
             }
+            for (skill in results) {
+                skillStore.incrementUseCount(skill.id)
+            }
             return mapOf(
                 "success" to true,
                 "count" to results.size,

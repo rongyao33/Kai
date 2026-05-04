@@ -8,7 +8,8 @@ import com.inspiredandroid.kai.network.tools.ToolSchema
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.Serializable
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_parallel_execute_description
 import kai.composeapp.generated.resources.tool_parallel_execute_name
@@ -39,13 +40,11 @@ Use this when you need to:
 - Perform independent operations in parallel
 - Speed up multi-step workflows"""
 
-@Serializable
 data class ToolCall(
     val tool_name: String,
     val arguments: Map<String, Any> = emptyMap(),
 )
 
-@Serializable
 data class ToolResult(
     val tool_name: String,
     val success: Boolean,
@@ -95,6 +94,14 @@ object ParallelExecuteTool : Tool {
             )
         }
 
+        val selfReferencing = calls.filter { it.tool_name == "parallel_execute" }
+        if (selfReferencing.isNotEmpty()) {
+            return mapOf(
+                "success" to false,
+                "error" to "parallel_execute cannot call itself recursively",
+            )
+        }
+
         val invalidTools = calls.filter { it.tool_name.isBlank() }
         if (invalidTools.isNotEmpty()) {
             return mapOf(
@@ -103,7 +110,7 @@ object ParallelExecuteTool : Tool {
             )
         }
 
-        val tools = getAvailableTools()
+        val tools = getAvailableTools().filter { it.schema.name != "parallel_execute" }
         val missingTools = calls.map { it.tool_name }.filter { name ->
             tools.none { it.schema.name == name }
         }
@@ -115,7 +122,7 @@ object ParallelExecuteTool : Tool {
             )
         }
 
-        val startTime = System.currentTimeMillis()
+        val startTime = Clock.System.now().toEpochMilliseconds()
 
         return try {
             val results = coroutineScope {
@@ -124,7 +131,7 @@ object ParallelExecuteTool : Tool {
                 }.awaitAll()
             }
 
-            val totalTime = System.currentTimeMillis() - startTime
+            val totalTime = Clock.System.now().toEpochMilliseconds() - startTime
             val successCount = results.count { it.success }
             val errorCount = results.count { !it.success }
 
@@ -153,8 +160,14 @@ object ParallelExecuteTool : Tool {
     }
 
     private suspend fun executeSingleTool(call: ToolCall, tools: List<Tool>): ToolResult {
-        val tool = tools.find { it.schema.name == call.tool_name }!!
-        val startTime = System.currentTimeMillis()
+        val tool = tools.find { it.schema.name == call.tool_name }
+            ?: return ToolResult(
+                tool_name = call.tool_name,
+                success = false,
+                result = mapOf("error" to "Tool not found: ${call.tool_name}"),
+                duration_ms = 0L,
+            )
+        val startTime = Clock.System.now().toEpochMilliseconds()
 
         return try {
             val result = tool.execute(call.arguments)
@@ -162,7 +175,7 @@ object ParallelExecuteTool : Tool {
                 tool_name = call.tool_name,
                 success = true,
                 result = result,
-                duration_ms = System.currentTimeMillis() - startTime,
+                duration_ms = Clock.System.now().toEpochMilliseconds() - startTime,
             )
         } catch (e: Exception) {
             ToolResult(
@@ -170,7 +183,7 @@ object ParallelExecuteTool : Tool {
                 success = false,
                 result = null,
                 error = e.message ?: "Unknown error",
-                duration_ms = System.currentTimeMillis() - startTime,
+                duration_ms = Clock.System.now().toEpochMilliseconds() - startTime,
             )
         }
     }

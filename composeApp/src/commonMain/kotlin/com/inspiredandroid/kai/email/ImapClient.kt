@@ -39,7 +39,10 @@ class ImapClient(
     suspend fun login(username: String, password: String): Boolean {
         val tag = nextTag()
         val conn = connection ?: throw IllegalStateException("Not connected")
-        conn.writeLine("$tag LOGIN \"${escapeQuoted(username)}\" \"${escapeQuoted(password)}\"")
+        conn.writeLine("$tag LOGIN {${username.length}}")
+        conn.writeLine(username)
+        conn.writeLine("{${password.length}}")
+        conn.writeLine(password)
         val response = readUntilTaggedOrGreeting(tag)
         return response.contains("OK")
     }
@@ -58,14 +61,18 @@ class ImapClient(
 
     suspend fun searchSince(date: String): List<Long> = search("SEARCH SINCE $date")
 
-    suspend fun searchByFrom(sender: String): List<Long> = search("SEARCH FROM \"${escapeQuoted(sender)}\"")
+    suspend fun searchByFrom(sender: String): List<Long> = search("SEARCH FROM {${sender.length}}", sender)
 
-    suspend fun searchBySubject(subject: String): List<Long> = search("SEARCH SUBJECT \"${escapeQuoted(subject)}\"")
+    suspend fun searchBySubject(subject: String): List<Long> = search("SEARCH SUBJECT {${subject.length}}", subject)
 
-    private suspend fun search(command: String): List<Long> {
+    private suspend fun search(command: String, literal: String? = null): List<Long> {
         val tag = nextTag()
         val conn = connection ?: throw IllegalStateException("Not connected")
         conn.writeLine("$tag $command")
+        if (literal != null) {
+            readUntilTaggedOrGreeting(null, maxLines = 1)
+            conn.writeLine(literal)
+        }
         val response = readUntilTaggedOrGreeting(tag)
         val searchLine = response.lines().find { it.startsWith("* SEARCH") } ?: return emptyList()
         return searchLine.removePrefix("* SEARCH").trim().split(" ")
@@ -97,7 +104,7 @@ class ImapClient(
     suspend fun fetchBody(uid: Long, accountId: String): EmailMessage? {
         val conn = connection ?: throw IllegalStateException("Not connected")
         val tag = nextTag()
-        conn.writeLine("$tag FETCH $uid (BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)] BODY[TEXT])")
+        conn.writeLine("$tag FETCH $uid (BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)] BODY.PEEK[TEXT])")
         val response = readUntilTaggedOrGreeting(tag)
         return parseEmailFromFetch(uid, accountId, response)
     }
@@ -123,11 +130,10 @@ class ImapClient(
         }
     }
 
-    private suspend fun readUntilTaggedOrGreeting(tag: String?): String {
+    private suspend fun readUntilTaggedOrGreeting(tag: String?, maxLines: Int = 500): String {
         val conn = connection ?: throw IllegalStateException("Not connected")
         val result = StringBuilder()
         var lineCount = 0
-        val maxLines = 500 // Safety limit
 
         while (lineCount < maxLines) {
             val line = conn.readLine()

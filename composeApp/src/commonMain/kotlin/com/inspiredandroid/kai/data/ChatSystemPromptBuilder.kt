@@ -81,7 +81,19 @@ internal const val DEFAULT_STRUCTURED_LEARNING_SECTION =
         "- Record user corrections and preferences as PREFERENCE entries\n" +
         "- Record things that worked well as LEARNING entries\n" +
         "- Record error resolutions as ERROR entries\n" +
-        "Use memory_reinforce when a stored learning produced a good outcome."
+        "Use memory_reinforce when a stored learning produced a good outcome.\n" +
+        "\n" +
+        "## Advanced Memory System (2026 Architecture)\n" +
+        "- **Episodic Memory**: Automatically records conversation events, tool calls, and task outcomes for later retrieval\n" +
+        "- **Semantic Memory**: Uses vector embeddings for similarity-based recall — ideal for finding related past experiences\n" +
+        "- **Knowledge Graph**: Stores semantic triples (Subject→Predicate→Object) for relationship-based reasoning\n" +
+        "- **Confidence Decay**: Memories naturally decay over time unless reinforced or validated\n" +
+        "- **Neural Science Model**: Short-term memories decay quickly (3-day crossover), long-term memories are retained longer\n" +
+        "\n" +
+        "When to use which memory:\n" +
+        "- Use memory_learn for explicit user-provided facts and preferences\n" +
+        "- Use semantic_search when finding similar past situations\n" +
+        "- Use knowledge_graph queries when reasoning about relationships between concepts"
 
 /**
  * Teaches the model how the two automation mechanisms differ. Only composed into the
@@ -123,6 +135,27 @@ internal const val DEFAULT_AUTONOMOUS_LEARNING_SECTION =
         "Failed approaches are as valuable as successes — they become AVOIDANCE insights that prevent repeating mistakes. " +
         "Proactively crystallize knowledge after completing complex tasks. The goal is continuous improvement through accumulated experience."
 
+internal const val DEFAULT_ADVANCED_TOOLS_SECTION =
+    "## Advanced Tools\n" +
+        "You have access to powerful tools for complex tasks:\n\n" +
+        "**deep_research**: Multi-source research with configurable depth.\n" +
+        "- Use for thorough investigation of any topic\n" +
+        "- depth: 'quick' (3 sources), 'standard' (5 sources), 'deep' (10 sources)\n" +
+        "- Returns summary, key points, sources, and recommendations\n\n" +
+        "**parallel_execute**: Run up to 3 tools simultaneously.\n" +
+        "- Use when gathering information from multiple independent sources\n" +
+        "- Significantly faster than sequential calls\n" +
+        "- Example: search web + get location + research topic in one call\n\n" +
+        "**git_cli**: Execute Git commands in the Linux sandbox.\n" +
+        "- Full Git support: status, log, diff, branch, commit, push, pull, clone\n" +
+        "- Use for version control and repository management\n" +
+        "- Works with execute_shell_command for actual execution\n\n" +
+        "**execute_shell_command**: Full Alpine Linux environment.\n" +
+        "- Languages: Python, Node.js, GCC, Make, CMake\n" +
+        "- Tools: curl, wget, git, jq, ffmpeg, imagemagick, sqlite, redis\n" +
+        "- Debug: gdb, strace, network tools (nmap, netcat)\n" +
+        "- Persistent shell session within conversation"
+
 /**
  * Composes the full chat system prompt for the given [variant].
  *
@@ -159,6 +192,8 @@ internal fun buildChatSystemPrompt(
         append(DEFAULT_STRUCTURED_LEARNING_SECTION)
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_AUTONOMOUS_LEARNING_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_ADVANCED_TOOLS_SECTION)
     }
 
     // Memory category sections are emitted for BOTH variants. memory_store / memory_forget /

@@ -42,12 +42,18 @@ class ToolExecutor {
     ): String {
         val tools = getAvailableTools()
         val tool = tools.find { it.schema.name == name }
-            ?: return """{"success": false, "error": "Unknown tool: $name"}"""
+            ?: return jsonParser.encodeToString(
+                JsonElement.serializer(),
+                JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Unknown tool: $name"))),
+            )
 
         val args = try {
             parseJsonToMap(arguments)
         } catch (e: Exception) {
-            return """{"success": false, "error": "Failed to parse arguments: ${e.message}"}"""
+            return jsonParser.encodeToString(
+                JsonElement.serializer(),
+                JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Failed to parse arguments: ${e.message}"))),
+            )
         }
 
         return try {
@@ -70,13 +76,22 @@ class ToolExecutor {
 
                 is String -> result
 
-                else -> """{"result": "$result"}"""
+                else -> {
+                    val jsonObject = JsonObject(mapOf("result" to anyToJsonElement(result)))
+                    jsonParser.encodeToString(JsonElement.serializer(), jsonObject)
+                }
             }
             truncateResult(resultString)
         } catch (e: TimeoutCancellationException) {
-            """{"success": false, "error": "Tool '$name' timed out after ${tool.timeout}"}"""
+            jsonParser.encodeToString(
+                JsonElement.serializer(),
+                JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Tool '$name' timed out after ${tool.timeout}"))),
+            )
         } catch (e: Exception) {
-            """{"success": false, "error": "Tool execution failed: ${e.message}"}"""
+            jsonParser.encodeToString(
+                JsonElement.serializer(),
+                JsonObject(mapOf("success" to JsonPrimitive(false), "error" to JsonPrimitive("Tool execution failed: ${e.message}"))),
+            )
         }
     }
 

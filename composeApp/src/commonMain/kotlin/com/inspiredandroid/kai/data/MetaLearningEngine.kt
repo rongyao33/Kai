@@ -10,6 +10,14 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+private fun SkillCategory.toMemoryCategory(): MemoryCategory = when (this) {
+    SkillCategory.WORKFLOW -> MemoryCategory.LEARNING
+    SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
+    SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
+    SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
+    SkillCategory.OTHER -> MemoryCategory.GENERAL
+}
+
 data class ToolExecutionRecord(
     val toolName: String,
     val argsSummary: String,
@@ -34,6 +42,9 @@ class MetaLearningEngine(
     private val experienceStore: ExperienceStore,
     private val insightIndex: InsightIndex,
     private val memoryStore: MemoryStore,
+    private val semanticMemory: SemanticMemoryStore? = null,
+    private val knowledgeGraph: KnowledgeGraphStore? = null,
+    private val episodicMemory: EpisodicMemoryStore? = null,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -177,6 +188,19 @@ class MetaLearningEngine(
 
         experienceStore.markCrystallized(experience.id, skill.id)
 
+        episodicMemory?.recordTaskComplete(
+            conversationId = "session-${Clock.System.now().toEpochMilliseconds()}",
+            taskDescription = suggestion.suggestedDescription,
+            outcome = if (outcome == ExperienceOutcome.SUCCESS) TaskOutcome.SUCCESS else if (outcome == ExperienceOutcome.PARTIAL) TaskOutcome.PARTIAL else TaskOutcome.FAILURE,
+        )
+
+        knowledgeGraph?.addTriple(
+            subject = suggestion.suggestedSkillName,
+            predicate = "crystallized_from",
+            object_ = experience.id,
+            subjectType = NodeType.CONCEPT,
+        )
+
         if (outcome == ExperienceOutcome.SUCCESS && suggestion.confidence >= 0.7f) {
             scope.launch {
                 insightIndex.addInsight(
@@ -186,6 +210,15 @@ class MetaLearningEngine(
                     initialConfidence = suggestion.confidence,
                 )
             }
+
+            semanticMemory?.add(
+                content = suggestion.suggestedDescription,
+                metadata = SemanticMetadata(
+                    category = suggestion.suggestedCategory.toMemoryCategory(),
+                    keywords = suggestion.suggestedTags,
+                    confidence = suggestion.confidence,
+                ),
+            )
         }
 
         if (outcome == ExperienceOutcome.FAILURE) {
@@ -230,6 +263,19 @@ class MetaLearningEngine(
 
         experienceStore.markCrystallized(experience.id, skill.id)
 
+        episodicMemory?.recordTaskComplete(
+            conversationId = conversationId,
+            taskDescription = suggestion.suggestedDescription,
+            outcome = if (outcome == ExperienceOutcome.SUCCESS) TaskOutcome.SUCCESS else if (outcome == ExperienceOutcome.PARTIAL) TaskOutcome.PARTIAL else TaskOutcome.FAILURE,
+        )
+
+        knowledgeGraph?.addTriple(
+            subject = suggestion.suggestedSkillName,
+            predicate = "crystallized_from",
+            object_ = experience.id,
+            subjectType = NodeType.CONCEPT,
+        )
+
         if (outcome == ExperienceOutcome.SUCCESS && suggestion.confidence >= 0.7f) {
             scope.launch {
                 insightIndex.addInsight(
@@ -239,6 +285,15 @@ class MetaLearningEngine(
                     initialConfidence = suggestion.confidence,
                 )
             }
+
+            semanticMemory?.add(
+                content = suggestion.suggestedDescription,
+                metadata = SemanticMetadata(
+                    category = suggestion.suggestedCategory.toMemoryCategory(),
+                    keywords = suggestion.suggestedTags,
+                    confidence = suggestion.confidence,
+                ),
+            )
         }
 
         if (outcome == ExperienceOutcome.FAILURE) {
@@ -313,6 +368,63 @@ class MetaLearningEngine(
             val skillText = "${skill.name} ${skill.description} ${skill.tags.joinToString(" ")}".lowercase()
             words.any { skillText.contains(it) }
         }.take(3)
+    }
+
+    suspend fun getSemanticMemoriesForContext(
+        userMessage: String,
+        keywords: List<String> = emptyList(),
+        topK: Int = 5,
+    ): List<SemanticSearchResult> {
+        val semantic = semanticMemory ?: return emptyList()
+        return if (keywords.isNotEmpty()) {
+            semantic.searchHybrid(userMessage, keywords, topK)
+        } else {
+            semantic.searchByContent(userMessage, topK)
+        }
+    }
+
+    suspend fun getKnowledgeGraphContext(query: String): List<KnowledgeGraphNode> {
+        val kg = knowledgeGraph ?: return emptyList()
+        return kg.searchNodes(query).take(5)
+    }
+
+    suspend fun getEpisodicContext(conversationId: String, recentCount: Int = 10): List<EpisodicEvent> {
+        val episodic = episodicMemory ?: return emptyList()
+        return episodic.getLastNEvents(recentCount).filter { it.conversationId == conversationId }
+    }
+
+    suspend fun storeMemoryWithSemanticTriple(
+        key: String,
+        content: String,
+        subject: String,
+        predicate: String,
+        object_: String,
+        category: MemoryCategory = MemoryCategory.GENERAL,
+        tags: List<String> = emptyList(),
+    ): MemoryEntry? {
+        val memory = memoryStore.store(
+            key = key,
+            content = content,
+            category = category,
+            subject = subject,
+            predicate = predicate,
+            object_ = object_,
+            tags = tags,
+        )
+
+        knowledgeGraph?.addTriple(subject, predicate, object_)
+
+        semanticMemory?.add(
+            content = content,
+            metadata = SemanticMetadata(
+                category = category,
+                keywords = tags,
+                memoryKey = key,
+                confidence = 1.0f,
+            ),
+        )
+
+        return memory
     }
 
     private fun extractTags(tools: List<ToolExecutionRecord>, summary: String): List<String> {
@@ -442,6 +554,16 @@ class MetaLearningEngine(
             }
         }
 
+        memoryStore.applyDecay()
+        val decayedMemories = memoryStore.getDecayedMemories(0.3f)
+        for (memory in decayedMemories.take(10)) {
+            memoryStore.forget(memory.key)
+            report.memoriesDecayed++
+        }
+
+        semanticMemory?.cleanup(100)
+        knowledgeGraph?.cleanup()
+
         report.totalAnalyzed = allExperiences.size + allInsights.size + allSkills.size
         return report
     }
@@ -472,7 +594,7 @@ class MetaLearningEngine(
         return value.coerceIn(0f, 1f)
     }
 
-    fun getLearningStats(): LearningStats {
+    suspend fun getLearningStats(): LearningStats {
         val experiences = experienceStore.getRecentExperiences(Int.MAX_VALUE)
         val insights = insightIndex.getActiveInsights()
         val skills = skillStore.getAllSkills()
@@ -490,6 +612,9 @@ class MetaLearningEngine(
             autoCreatedSkills = skills.count { it.autoCreated },
             totalMemories = memories.size,
             avgSkillUseCount = if (skills.isNotEmpty()) skills.sumOf { it.useCount }.toFloat() / skills.size else 0f,
+            semanticMemories = semanticMemory?.getStats()?.totalEntries ?: 0,
+            knowledgeGraphNodes = knowledgeGraph?.getStats()?.totalNodes ?: 0,
+            episodicEvents = episodicMemory?.getStats()?.totalEvents ?: 0,
         )
     }
 
@@ -534,6 +659,7 @@ data class CleanupReport(
     var experiencesDropped: Int = 0,
     var insightsDeprecated: Int = 0,
     var skillsPruned: Int = 0,
+    var memoriesDecayed: Int = 0,
 )
 
 data class LearningStats(
@@ -546,6 +672,9 @@ data class LearningStats(
     val autoCreatedSkills: Int,
     val totalMemories: Int,
     val avgSkillUseCount: Float,
+    val semanticMemories: Int = 0,
+    val knowledgeGraphNodes: Int = 0,
+    val episodicEvents: Int = 0,
 )
 
 data class CapabilityGap(

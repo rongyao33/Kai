@@ -3,8 +3,11 @@ package com.inspiredandroid.kai.mcp
 import com.inspiredandroid.kai.network.tools.ParameterSchema
 import com.inspiredandroid.kai.network.tools.Tool
 import com.inspiredandroid.kai.network.tools.ToolSchema
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -28,15 +31,7 @@ class McpTool(
     override suspend fun execute(args: Map<String, Any>): Any {
         val jsonArgs = buildJsonObject {
             for ((key, value) in args) {
-                when (value) {
-                    is String -> put(key, JsonPrimitive(value))
-                    is Boolean -> put(key, JsonPrimitive(value))
-                    is Int -> put(key, JsonPrimitive(value))
-                    is Long -> put(key, JsonPrimitive(value))
-                    is Double -> put(key, JsonPrimitive(value))
-                    is Number -> put(key, JsonPrimitive(value.toDouble()))
-                    else -> put(key, JsonPrimitive(value.toString()))
-                }
+                put(key, anyToJsonElement(value))
             }
         }
         return try {
@@ -49,6 +44,25 @@ class McpTool(
 
     companion object {
         fun toolId(serverId: String, toolName: String): String = "mcp_${serverId}_$toolName"
+
+        private fun anyToJsonElement(value: Any?): JsonElement = when (value) {
+            null -> JsonPrimitive(null)
+            is String -> JsonPrimitive(value)
+            is Boolean -> JsonPrimitive(value)
+            is Int -> JsonPrimitive(value)
+            is Long -> JsonPrimitive(value)
+            is Double -> JsonPrimitive(value)
+            is Number -> JsonPrimitive(value.toDouble())
+            is Map<*, *> -> buildJsonObject {
+                for ((k, v) in value) {
+                    if (k != null) put(k.toString(), anyToJsonElement(v))
+                }
+            }
+            is List<*> -> buildJsonArray {
+                for (item in value) add(anyToJsonElement(item))
+            }
+            else -> JsonPrimitive(value.toString())
+        }
 
         fun convertInputSchema(inputSchema: JsonObject?): Map<String, ParameterSchema> {
             if (inputSchema == null) return emptyMap()

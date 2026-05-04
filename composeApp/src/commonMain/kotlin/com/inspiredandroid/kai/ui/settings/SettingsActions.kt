@@ -60,6 +60,8 @@ data class SettingsActions(
     val onUndoDelete: () -> Unit,
     val onShowClearLearningDataDialog: (Boolean) -> Unit,
     val onClearAllLearningData: () -> Unit,
+    val onDeleteSkill: (String) -> Unit,
+    val onDeleteInsight: (String) -> Unit,
 ) {
     companion object {
         val NoOp = SettingsActions(
@@ -115,6 +117,8 @@ data class SettingsActions(
             onUndoDelete = {},
             onShowClearLearningDataDialog = {},
             onClearAllLearningData = {},
+            onDeleteSkill = {},
+            onDeleteInsight = {},
         )
     }
 }

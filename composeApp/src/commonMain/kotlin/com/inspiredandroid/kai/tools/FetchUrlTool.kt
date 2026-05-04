@@ -121,7 +121,14 @@ object FetchUrlTool : Tool {
         if (h.isEmpty()) return true
         if (h == "localhost" || h.endsWith(".localhost")) return true
         if (h == "::1" || h == "0:0:0:0:0:0:0:1") return true
-        if (h.startsWith("fe80:") || h.startsWith("fc") || h.startsWith("fd")) return true
+        if (h.startsWith("fe80:") || h.startsWith("fe9") || h.startsWith("fea") || h.startsWith("feb") ||
+            h.startsWith("fec") || h.startsWith("fed") || h.startsWith("fee") || h.startsWith("fef") ||
+            h.startsWith("fc") || h.startsWith("fd")
+        ) return true
+        if (h.startsWith("::ffff:")) {
+            val mapped = h.substringAfter("::ffff:")
+            return isBlockedHost(mapped)
+        }
         val octets = h.split(".")
         if (octets.size == 4 && octets.all { it.toIntOrNull() != null }) {
             val (a, b) = octets[0].toInt() to octets[1].toInt()
@@ -134,6 +141,13 @@ object FetchUrlTool : Tool {
                 a == 172 && b in 16..31 -> true
                 else -> false
             }
+        }
+        if (h.toIntOrNull() != null) {
+            val ip = h.toLong()
+            if (ip == 2130706433L) return true
+            if (ip in 167772160L..184549375L) return true
+            if (ip in 2886729728L..2887778303L) return true
+            if (ip in 3232235520L..3232301055L) return true
         }
         return false
     }

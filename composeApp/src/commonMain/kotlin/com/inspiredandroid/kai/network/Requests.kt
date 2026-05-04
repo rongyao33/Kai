@@ -26,7 +26,7 @@ import io.ktor.client.plugins.UserAgent
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.EMPTY
 import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logger
+import io.ktor.client.plugins.logging.Logger as KtorLogger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.bearerAuth
@@ -59,7 +59,7 @@ class Requests {
         install(ContentNegotiation) {
             json(
                 Json {
-                    prettyPrint = true
+                    prettyPrint = false
                     isLenient = true
                     ignoreUnknownKeys = true
                     encodeDefaults = true
@@ -78,13 +78,13 @@ class Requests {
                 logger = DebugKtorLogger()
                 level = LogLevel.BODY
             } else {
-                logger = Logger.EMPTY
+                logger = KtorLogger.EMPTY
                 level = LogLevel.NONE
             }
         }
     }
 
-    class DebugKtorLogger : Logger {
+    class DebugKtorLogger : KtorLogger {
         override fun log(message: String) {
             Logger.d("KTOR", message)
         }
@@ -120,7 +120,7 @@ class Requests {
         requestTimeoutMs: Long? = null,
     ): Result<GeminiChatResponseDto> = try {
         val apiKey = credentials.apiKey.ifEmpty { throw GeminiInvalidApiKeyException() }
-        val selectedModelId = credentials.modelId
+        val selectedModelId = credentials.modelId.ifEmpty { throw GeminiGenericException("No model selected") }
 
         val systemContent = systemInstruction?.let {
             GeminiChatRequestDto.Content(
@@ -141,7 +141,9 @@ class Requests {
                 setBody(
                     GeminiChatRequestDto(
                         contents = messages,
-                        tools = tools.map { it.toGeminiTool() }.ifEmpty { null },
+                        tools = if (tools.isEmpty()) null else listOf(GeminiTool(
+                            functionDeclarations = tools.map { it.toFunctionDeclaration() },
+                        )),
                         systemInstruction = systemContent,
                     ),
                 )
@@ -164,11 +166,13 @@ class Requests {
                 }
             }
         }
-    } catch (e: Exception) {
+    } catch (e: GeminiApiException) {
         Result.failure(e)
+    } catch (e: io.ktor.client.plugins.HttpRequestTimeoutException) {
+        Result.failure(GeminiGenericException("Request timed out", e))
+    } catch (e: Exception) {
+        Result.failure(GeminiGenericException("Connection failed", e))
     }
-
-    // endregion
 
     // region OpenAI-compatible (unified)
 
@@ -286,6 +290,8 @@ class Requests {
         }
     } catch (e: AnthropicApiException) {
         Result.failure(e)
+    } catch (e: io.ktor.client.plugins.HttpRequestTimeoutException) {
+        Result.failure(AnthropicGenericException("Request timed out", e))
     } catch (e: Exception) {
         Result.failure(AnthropicGenericException("Anthropic: ${e.message}", e))
     }
@@ -437,22 +443,18 @@ class Requests {
         ),
     )
 
-    private fun Tool.toGeminiTool(): GeminiTool = GeminiTool(
-        functionDeclarations = listOf(
-            FunctionDeclaration(
-                name = schema.name,
-                description = schema.description,
-                parameters = FunctionParameters(
-                    properties = schema.parameters.mapValues { (_, param) ->
-                        param.rawSchema?.toGeminiPropertySchema()
-                            ?: PropertySchema(
-                                type = param.type,
-                                description = param.description,
-                            )
-                    },
-                    required = schema.parameters.filter { it.value.required }.keys.toList(),
-                ),
-            ),
+    private fun Tool.toFunctionDeclaration(): FunctionDeclaration = FunctionDeclaration(
+        name = schema.name,
+        description = schema.description,
+        parameters = FunctionParameters(
+            properties = schema.parameters.mapValues { (_, param) ->
+                param.rawSchema?.toGeminiPropertySchema()
+                    ?: PropertySchema(
+                        type = param.type,
+                        description = param.description,
+                    )
+            },
+            required = schema.parameters.filter { it.value.required }.keys.toList(),
         ),
     )
 
@@ -467,12 +469,13 @@ private fun JsonObject.toOpenAIPropertySchema(): OpenAICompatibleChatRequestDto.
     val type = this["type"]?.jsonPrimitive?.content ?: "string"
     val description = this["description"]?.jsonPrimitive?.content
     val enumValues = this["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
-    val items = this["items"]?.jsonObject?.toOpenAIPropertySchema()
-    val properties = this["properties"]?.jsonObject?.mapValues { (_, v) ->
-        v.jsonObject.toOpenAIPropertySchema()
+    val items = (this["items"] as? JsonObject)?.toOpenAIPropertySchema()
+    val properties = (this["properties"] as? JsonObject)?.mapValues { (_, v) ->
+        (v as? JsonObject)?.toOpenAIPropertySchema() ?: OpenAICompatibleChatRequestDto.PropertySchema(type = "string")
     }
     val required = this["required"]?.jsonArray?.map { it.jsonPrimitive.content }
-    val additionalProperties = this["additionalProperties"]?.jsonPrimitive?.content?.toBooleanStrictOrNull()
+    val additionalProperties = (this["additionalProperties"] as? kotlinx.serialization.json.JsonPrimitive)
+        ?.content?.toBooleanStrictOrNull()
     return OpenAICompatibleChatRequestDto.PropertySchema(
         type = type,
         description = description,
@@ -488,9 +491,9 @@ private fun JsonObject.toAnthropicPropertySchema(): AnthropicChatRequestDto.Prop
     val type = this["type"]?.jsonPrimitive?.content ?: "string"
     val description = this["description"]?.jsonPrimitive?.content
     val enumValues = this["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
-    val items = this["items"]?.jsonObject?.toAnthropicPropertySchema()
-    val properties = this["properties"]?.jsonObject?.mapValues { (_, v) ->
-        v.jsonObject.toAnthropicPropertySchema()
+    val items = (this["items"] as? JsonObject)?.toAnthropicPropertySchema()
+    val properties = (this["properties"] as? JsonObject)?.mapValues { (_, v) ->
+        (v as? JsonObject)?.toAnthropicPropertySchema() ?: AnthropicChatRequestDto.PropertySchema(type = "string")
     }
     val required = this["required"]?.jsonArray?.map { it.jsonPrimitive.content }
     return AnthropicChatRequestDto.PropertySchema(
@@ -507,9 +510,9 @@ private fun JsonObject.toGeminiPropertySchema(): PropertySchema {
     val type = this["type"]?.jsonPrimitive?.content ?: "string"
     val description = this["description"]?.jsonPrimitive?.content
     val enumValues = this["enum"]?.jsonArray?.map { it.jsonPrimitive.content }
-    val items = this["items"]?.jsonObject?.toGeminiPropertySchema()
-    val properties = this["properties"]?.jsonObject?.mapValues { (_, v) ->
-        v.jsonObject.toGeminiPropertySchema()
+    val items = (this["items"] as? JsonObject)?.toGeminiPropertySchema()
+    val properties = (this["properties"] as? JsonObject)?.mapValues { (_, v) ->
+        (v as? JsonObject)?.toGeminiPropertySchema() ?: PropertySchema(type = "string")
     }
     val required = this["required"]?.jsonArray?.map { it.jsonPrimitive.content }
     return PropertySchema(

@@ -146,6 +146,13 @@ class InsightIndex(private val appSettings: AppSettings) {
             .sortedByDescending { it.triggeredCount }
             .take(limit)
 
+    suspend fun delete(id: String): Boolean = mutex.withLock {
+        val insights = loadInsights()
+        val removed = insights.removeAll { it.id == id }
+        if (removed) saveInsights(insights)
+        removed
+    }
+
     suspend fun clearAll(): Int = mutex.withLock {
         val insights = loadInsights()
         val count = insights.size

@@ -118,6 +118,7 @@ class ConversationStorage(private val appSettings: AppSettings) {
     private fun migrateLegacy() {
         val legacyData = readLegacyConversationFile() ?: return
         val key = appSettings.getEncryptionKey() ?: return
+        if (key.isEmpty()) return
         val decrypted = ByteArray(legacyData.size)
         for (i in legacyData.indices) {
             decrypted[i] = (legacyData[i].toInt() xor key[i % key.size].toInt()).toByte()

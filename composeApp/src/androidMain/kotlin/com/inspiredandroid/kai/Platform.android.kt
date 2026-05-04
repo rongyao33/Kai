@@ -39,6 +39,7 @@ import com.inspiredandroid.kai.tools.CalendarResult
 import com.inspiredandroid.kai.tools.CommonTools
 import com.inspiredandroid.kai.tools.DeepResearchTool
 import com.inspiredandroid.kai.tools.EmailTools
+import com.inspiredandroid.kai.tools.FetchUrlTool
 import com.inspiredandroid.kai.tools.GitCliTool
 import com.inspiredandroid.kai.tools.HeartbeatTools
 import com.inspiredandroid.kai.tools.MemorySearchTools
@@ -232,8 +233,6 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             id = "deep_research",
             name = "Deep Research",
             description = "Perform comprehensive multi-source research on any topic",
-            nameRes = Res.string.tool_deep_research_name,
-            descriptionRes = Res.string.tool_deep_research_description,
         ),
     )
     add(
@@ -241,8 +240,6 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             id = "git_cli",
             name = "Git CLI",
             description = "Execute Git commands for repository management",
-            nameRes = Res.string.tool_git_cli_name,
-            descriptionRes = Res.string.tool_git_cli_description,
         ),
     )
     add(
@@ -250,8 +247,27 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
             id = "parallel_execute",
             name = "Parallel Execute",
             description = "Execute up to 3 tools simultaneously for faster task completion",
-            nameRes = Res.string.tool_parallel_execute_name,
-            descriptionRes = Res.string.tool_parallel_execute_description,
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "execute_shell_command",
+            name = "Execute Shell Command",
+            description = "Execute a shell command in the Linux sandbox",
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "manage_process",
+            name = "Manage Process",
+            description = "Check on background processes in the Linux sandbox",
+        ),
+    )
+    add(
+        ToolInfo(
+            id = "sandbox_info",
+            name = "Sandbox Info",
+            description = "Get Linux sandbox environment information",
         ),
     )
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
@@ -292,6 +308,10 @@ actual fun getAvailableTools(): List<Tool> {
 
         if (appSettings.isToolEnabled(WebSearchTool.schema.name)) {
             add(WebSearchTool)
+        }
+
+        if (appSettings.isToolEnabled(FetchUrlTool.schema.name)) {
+            add(FetchUrlTool)
         }
 
         if (appSettings.isToolEnabled(DeepResearchTool.schema.name)) {

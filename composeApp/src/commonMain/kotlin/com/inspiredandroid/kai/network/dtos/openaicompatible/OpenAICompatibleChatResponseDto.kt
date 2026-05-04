@@ -10,7 +10,11 @@ data class OpenAICompatibleChatResponseDto(
     val choices: List<Choice>,
 ) {
     @Serializable
-    data class Choice(val message: Message? = null) {
+    data class Choice(
+        val message: Message? = null,
+        @SerialName("finish_reason")
+        val finishReason: String? = null,
+    ) {
         @Serializable
         data class Message(
             val role: String? = null,

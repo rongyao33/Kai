@@ -260,6 +260,9 @@ fun KaiUiRenderer(
     var hasError by remember { mutableStateOf(false) }
 
     LaunchedEffect(node, frozen?.values) {
+        formState.clear()
+        toggleState.clear()
+        hasError = false
         try {
             initializeFormState(node, formState)
             frozen?.values?.let { formState.putAll(it) }
@@ -316,8 +319,9 @@ private fun safeCallback(
 ): (String, Map<String, String>) -> Unit = { event, data ->
     try {
         onCallback(event, data)
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
     } catch (_: Exception) {
-        // Silently handle callback errors to prevent crashes
     }
 }
 
@@ -987,7 +991,7 @@ private fun RenderCountdown(
     toggleState: SnapshotStateMap<String, Boolean>,
     onCallback: (String, Map<String, String>) -> Unit,
 ) {
-    val targetMs = remember { Clock.System.now().toEpochMilliseconds() + node.seconds.toLong() * 1000L }
+    val targetMs = remember(node.id, node.seconds) { Clock.System.now().toEpochMilliseconds() + node.seconds.toLong() * 1000L }
     var remainingSeconds by remember { mutableStateOf<Long>(node.seconds.toLong()) }
     var expired by remember { mutableStateOf(false) }
     val currentOnCallback by rememberUpdatedState(onCallback)

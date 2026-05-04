@@ -154,6 +154,9 @@ object MetaLearningTools {
         override suspend fun execute(args: Map<String, Any>): Any {
             val query = args["query"]?.toString() ?: return mapOf("success" to false, "error" to "Missing query")
             val results = insightIndex.searchInsights(query)
+            for (insight in results) {
+                insightIndex.recordTrigger(insight.id)
+            }
             if (results.isEmpty()) {
                 return mapOf("success" to true, "results" to emptyList<Any>(), "message" to "No insights found matching '$query'")
             }

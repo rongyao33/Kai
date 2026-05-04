@@ -73,12 +73,12 @@ interface DataRepository {
     // Soul (system prompt)
     fun getSoulText(): String
     fun setSoulText(text: String)
-    suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE): String?
+    suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE, userMessage: String? = null): String?
 
     // Memory management
     fun isMemoryEnabled(): Boolean
     fun setMemoryEnabled(enabled: Boolean)
-    fun getMemories(): List<MemoryEntry>
+    suspend fun getMemories(): List<MemoryEntry>
     suspend fun deleteMemory(key: String)
     suspend fun updateMemoryContent(key: String, content: String)
 
@@ -91,18 +91,13 @@ interface DataRepository {
     fun getExperiences(): List<ExperienceEntry>
     fun getInsights(): List<InsightEntry>
     fun getSkills(): List<SkillEntry>
-
-data class ClearAllLearningDataResult(
-    val memoriesCleared: Int,
-    val experiencesCleared: Int,
-    val insightsCleared: Int,
-    val skillsCleared: Int,
-)
+    suspend fun deleteSkill(id: String): Boolean
+    suspend fun deleteInsight(id: String): Boolean
 
     // Scheduling management
     fun isSchedulingEnabled(): Boolean
     fun setSchedulingEnabled(enabled: Boolean)
-    fun getScheduledTasks(): List<ScheduledTask>
+    suspend fun getScheduledTasks(): List<ScheduledTask>
     suspend fun cancelScheduledTask(id: String)
 
     // Dynamic UI
@@ -143,8 +138,8 @@ data class ClearAllLearningDataResult(
     suspend fun removeEmailAccount(id: String)
     fun getEmailPollIntervalMinutes(): Int
     fun setEmailPollIntervalMinutes(minutes: Int)
-    fun getPendingEmailCount(): Int
-    fun getEmailSyncStates(): Map<String, EmailSyncState>
+    suspend fun getPendingEmailCount(): Int
+    suspend fun getEmailSyncStates(): Map<String, EmailSyncState>
     suspend fun pollEmailAccount(accountId: String)
 
     // SMS (FOSS-only on Android; other platforms return stub values).
@@ -225,3 +220,10 @@ data class ClearAllLearningDataResult(
     fun cancelLocalModelDownload()
     suspend fun deleteLocalModel(modelId: String)
 }
+
+data class ClearAllLearningDataResult(
+    val memoriesCleared: Int,
+    val experiencesCleared: Int,
+    val insightsCleared: Int,
+    val skillsCleared: Int,
+)

@@ -30,10 +30,10 @@ class SmtpClient(
         writeLine("STARTTLS")
         val response = readResponse()
         if (!response.startsWith("220")) {
+            try { quit() } catch (_: Exception) {}
             throw Exception("STARTTLS failed: $response")
         }
         connection?.upgradeToTls(host)
-        // Re-issue EHLO after TLS
         ehlo()
     }
 
@@ -67,11 +67,16 @@ class SmtpClient(
         body: String,
         inReplyTo: String? = null,
     ): Boolean {
-        writeLine("MAIL FROM:<$from>")
+        val sanitizedFrom = from.sanitizeHeader()
+        val sanitizedTo = to.sanitizeHeader()
+        val sanitizedSubject = subject.sanitizeHeader()
+        val sanitizedInReplyTo = inReplyTo?.sanitizeHeader()
+
+        writeLine("MAIL FROM:<$sanitizedFrom>")
         var response = readResponse()
         if (!response.startsWith("250")) throw Exception("MAIL FROM failed: $response")
 
-        writeLine("RCPT TO:<$to>")
+        writeLine("RCPT TO:<$sanitizedTo>")
         response = readResponse()
         if (!response.startsWith("250")) throw Exception("RCPT TO failed: $response")
 
@@ -79,16 +84,15 @@ class SmtpClient(
         response = readResponse()
         if (!response.startsWith("354")) throw Exception("DATA failed: $response")
 
-        // Build email headers + body
         val headers = buildString {
-            appendLine("From: $from")
-            appendLine("To: $to")
-            appendLine("Subject: $subject")
+            appendLine("From: $sanitizedFrom")
+            appendLine("To: $sanitizedTo")
+            appendLine("Subject: $sanitizedSubject")
             appendLine("MIME-Version: 1.0")
             appendLine("Content-Type: text/plain; charset=UTF-8")
-            if (inReplyTo != null) {
-                appendLine("In-Reply-To: $inReplyTo")
-                appendLine("References: $inReplyTo")
+            if (sanitizedInReplyTo != null) {
+                appendLine("In-Reply-To: $sanitizedInReplyTo")
+                appendLine("References: $sanitizedInReplyTo")
             }
             appendLine()
         }
@@ -126,14 +130,17 @@ class SmtpClient(
     private suspend fun readResponse(): String {
         val conn = connection ?: throw IllegalStateException("Not connected")
         val result = StringBuilder()
-        // SMTP responses can be multiline (e.g., "250-PIPELINING\r\n250 SIZE...")
-        while (true) {
+        var lineCount = 0
+        val maxLines = 100
+        while (lineCount < maxLines) {
             val line = conn.readLine()
             result.appendLine(line)
-            // Final line has space after status code, continuation lines have dash
+            lineCount++
             if (line.length >= 4 && line[3] == ' ') break
             if (line.length < 4) break
         }
         return result.toString().trim()
     }
 }
+
+private fun String.sanitizeHeader(): String = replace("\r", "").replace("\n", "")

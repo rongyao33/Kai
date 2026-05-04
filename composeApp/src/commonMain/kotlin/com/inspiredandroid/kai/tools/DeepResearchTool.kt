@@ -16,8 +16,6 @@ import kotlinx.serialization.json.Json
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_deep_research_description
 import kai.composeapp.generated.resources.tool_deep_research_name
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val TOOL_DESCRIPTION = """Perform deep research on a topic using multiple sources. This tool:
 
@@ -150,7 +148,6 @@ object DeepResearchTool : Tool {
         }
     }
 
-    @OptIn(ExperimentalEncodingApi::class)
     private fun encodeUrl(s: String): String {
         val sb = StringBuilder()
         for (c in s) {
@@ -161,7 +158,7 @@ object DeepResearchTool : Tool {
                     val bytes = c.toString().encodeToByteArray()
                     for (b in bytes) {
                         sb.append('%')
-                        sb.append(Base64.encodeHex(byteArrayOf(b)))
+                        sb.append("%02X".format(b.toInt() and 0xFF))
                     }
                 }
             }
@@ -192,6 +189,8 @@ object DeepResearchTool : Tool {
 
     private suspend fun fetchContent(url: String): String? {
         return try {
+            val host = try { io.ktor.http.Url(url).host } catch (_: Exception) { null }
+            if (host != null && isBlockedHost(host)) return null
             val response = researchClient.get(url) {
                 header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
             }
@@ -200,6 +199,23 @@ object DeepResearchTool : Tool {
         } catch (e: Exception) {
             null
         }
+    }
+
+    private fun isBlockedHost(host: String): Boolean {
+        val h = host.lowercase().trim('[', ']')
+        val blocked = listOf("localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254")
+        if (h in blocked) return true
+        if (h.startsWith("10.") || h.startsWith("192.168.") || h.startsWith("fe80:")) return true
+        if (h.startsWith("172.")) {
+            val second = h.split(".").getOrNull(1)?.toIntOrNull() ?: 0
+            if (second in 16..31) return true
+        }
+        if (h == "::ffff:127.0.0.1") return true
+        if (h.startsWith("::ffff:")) {
+            val ipv4 = h.substringAfter("::ffff:")
+            if (ipv4 == "127.0.0.1" || ipv4.startsWith("10.") || ipv4.startsWith("192.168.")) return true
+        }
+        return false
     }
 
     private fun extractTextFromHtml(html: String): String {

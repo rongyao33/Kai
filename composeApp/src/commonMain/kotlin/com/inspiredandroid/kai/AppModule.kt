@@ -17,6 +17,9 @@ import com.inspiredandroid.kai.data.SmsStore
 import com.inspiredandroid.kai.data.TaskScheduler
 import com.inspiredandroid.kai.data.TaskStore
 import com.inspiredandroid.kai.data.ToolExecutor
+import com.inspiredandroid.kai.data.EpisodicMemoryStore
+import com.inspiredandroid.kai.data.SemanticMemoryStore
+import com.inspiredandroid.kai.data.KnowledgeGraphStore
 import com.inspiredandroid.kai.email.EmailPoller
 import com.inspiredandroid.kai.inference.createLocalInferenceEngine
 import com.inspiredandroid.kai.mcp.McpServerManager
@@ -78,8 +81,25 @@ val appModule = module {
     single<InsightIndex> {
         InsightIndex(get())
     }
+    single<EpisodicMemoryStore> {
+        EpisodicMemoryStore(get())
+    }
+    single<SemanticMemoryStore> {
+        SemanticMemoryStore(get())
+    }
+    single<KnowledgeGraphStore> {
+        KnowledgeGraphStore(get())
+    }
     single<MetaLearningEngine> {
-        MetaLearningEngine(get(), get(), get(), get())
+        MetaLearningEngine(
+            skillStore = get(),
+            experienceStore = get(),
+            insightIndex = get(),
+            memoryStore = get(),
+            semanticMemory = get<SemanticMemoryStore>(),
+            knowledgeGraph = get<KnowledgeGraphStore>(),
+            episodicMemory = get<EpisodicMemoryStore>(),
+        )
     }
     single<TaskStore> {
         TaskStore(get())

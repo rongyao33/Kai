@@ -1,19 +1,17 @@
 package com.inspiredandroid.kai.data
 
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-/**
- * Minimal cron parser for 5-field expressions: minute hour day-of-month month day-of-week.
- * Supports: star, star/n (step), specific values, comma-separated lists, ranges.
- */
 @OptIn(ExperimentalTime::class)
 private val whitespaceRegex = Regex("\\s+")
 
@@ -23,31 +21,29 @@ class CronExpression(expression: String) {
     private val hours: Set<Int>
     private val daysOfMonth: Set<Int>
     private val months: Set<Int>
-    private val daysOfWeek: Set<Int> // 0=Sunday .. 6=Saturday (cron standard)
+    private val daysOfWeek: Set<Int>
+    private val dayOfMonthIsStar: Boolean
+    private val dayOfWeekIsStar: Boolean
 
     init {
         val parts = expression.trim().split(whitespaceRegex)
         require(parts.size == 5) { "Cron expression must have 5 fields, got ${parts.size}: $expression" }
         minutes = parseField(parts[0], 0, 59)
         hours = parseField(parts[1], 0, 23)
+        dayOfMonthIsStar = parts[2] == "*"
         daysOfMonth = parseField(parts[2], 1, 31)
         months = parseField(parts[3], 1, 12)
+        dayOfWeekIsStar = parts[4] == "*"
         daysOfWeek = parseField(parts[4], 0, 6)
     }
 
-    /**
-     * Computes the next execution time strictly after [after].
-     * Searches up to ~2 years ahead, returns null if no match found.
-     */
     fun nextAfter(after: Instant, timeZone: TimeZone = TimeZone.currentSystemDefault()): Instant? {
         val afterKx = Instant.fromEpochMilliseconds(after.toEpochMilliseconds())
         var dt = afterKx.toLocalDateTime(timeZone)
-        // Start from the next minute
         dt = LocalDateTime(dt.date, LocalTime(dt.hour, dt.minute, 0, 0))
         dt = advanceMinute(dt, timeZone)
 
-        // Search limit: ~2 years of minutes (enough for any cron)
-        val maxIterations = 525960 // 365 * 2 * 24 * 60
+        val maxIterations = 525960
         var iterations = 0
 
         while (iterations < maxIterations) {
@@ -58,7 +54,17 @@ class CronExpression(expression: String) {
                 continue
             }
 
-            if (dt.date.day !in daysOfMonth || toCronDayOfWeek(dt) !in daysOfWeek) {
+            val dayMatches = if (dayOfMonthIsStar && dayOfWeekIsStar) {
+                true
+            } else if (dayOfMonthIsStar) {
+                toCronDayOfWeek(dt) in daysOfWeek
+            } else if (dayOfWeekIsStar) {
+                dt.date.day in daysOfMonth
+            } else {
+                dt.date.day in daysOfMonth || toCronDayOfWeek(dt) in daysOfWeek
+            }
+
+            if (!dayMatches) {
                 dt = nextDay(dt, timeZone)
                 continue
             }
@@ -84,23 +90,22 @@ class CronExpression(expression: String) {
         return next.toLocalDateTime(tz)
     }
 
-    private fun nextHour(dt: LocalDateTime, tz: TimeZone): LocalDateTime = LocalDateTime(dt.date, LocalTime(dt.hour, 0, 0, 0))
-        .let {
-            val instant = it.toInstant(tz)
-            Instant.fromEpochMilliseconds(instant.toEpochMilliseconds() + 3_600_000L)
-                .toLocalDateTime(tz)
+    private fun nextHour(dt: LocalDateTime, tz: TimeZone): LocalDateTime {
+        val nextHour = (dt.hour + 1).coerceAtMost(23)
+        if (nextHour <= dt.hour) {
+            return nextDay(dt, tz)
         }
+        return LocalDateTime(dt.date, LocalTime(nextHour, 0, 0, 0))
+    }
 
-    private fun nextDay(dt: LocalDateTime, tz: TimeZone): LocalDateTime = LocalDateTime(dt.date, LocalTime(0, 0, 0, 0))
-        .let {
-            val instant = it.toInstant(tz)
-            Instant.fromEpochMilliseconds(instant.toEpochMilliseconds() + 86_400_000L)
-                .toLocalDateTime(tz)
-        }
+    private fun nextDay(dt: LocalDateTime, tz: TimeZone): LocalDateTime {
+        val nextDate = dt.date.plus(1, DateTimeUnit.DAY)
+        return LocalDateTime(nextDate, LocalTime(0, 0, 0, 0))
+    }
 
     private fun nextMonth(dt: LocalDateTime): LocalDateTime? {
         var year = dt.year
-        var month = dt.date.month.ordinal + 2 // ordinal is 0-based, +1 for 1-based, +1 for next month
+        var month = dt.date.month.ordinal + 2
         if (month > 12) {
             month = 1
             year++
@@ -109,7 +114,6 @@ class CronExpression(expression: String) {
         return LocalDateTime(LocalDate(year, month, 1), LocalTime(0, 0, 0, 0))
     }
 
-    /** Convert kotlinx.datetime DayOfWeek (MONDAY=1..SUNDAY=7) to cron convention (0=Sunday..6=Saturday) */
     private fun toCronDayOfWeek(dt: LocalDateTime): Int = when (dt.dayOfWeek) {
         DayOfWeek.SUNDAY -> 0
         DayOfWeek.MONDAY -> 1
@@ -138,7 +142,15 @@ class CronExpression(expression: String) {
                     }
 
                     part.contains("-") -> {
-                        val (start, end) = part.split("-").map { it.toInt() }
+                        val dashParts = part.split("-")
+                        require(dashParts.size == 2) { "Invalid range in cron field: $part" }
+                        val start = dashParts[0].toIntOrNull()
+                            ?: throw IllegalArgumentException("Invalid range start in cron field: $part")
+                        val end = dashParts[1].toIntOrNull()
+                            ?: throw IllegalArgumentException("Invalid range end in cron field: $part")
+                        if (start > end) {
+                            throw IllegalArgumentException("Reverse range not supported in cron field: $part (start=$start > end=$end)")
+                        }
                         result.addAll(start.coerceIn(min, max)..end.coerceIn(min, max))
                     }
 

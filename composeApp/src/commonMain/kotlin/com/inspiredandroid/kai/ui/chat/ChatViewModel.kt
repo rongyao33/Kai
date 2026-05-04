@@ -47,6 +47,7 @@ class ChatViewModel(
 
     companion object {
         private val kaiUiBlockPattern = Regex("```kai-ui\\s*\\n", RegexOption.MULTILINE)
+        private val FREE_MODE_INSTANCE_IDS = FreeMode.entries.associateBy { it.instanceId }
     }
 
     private fun containsKaiUiBlock(content: String): Boolean {
@@ -267,11 +268,7 @@ class ChatViewModel(
         _state.update {
             it.copy(
                 isSpeaking = isSpeaking,
-                isSpeakingContentId = if (isSpeaking) {
-                    contentId
-                } else {
-                    it.isSpeakingContentId
-                },
+                isSpeakingContentId = if (isSpeaking) contentId else "",
             )
         }
     }
@@ -368,10 +365,6 @@ class ChatViewModel(
             null
         }
         _state.update { it.copy(availableServices = entries, warning = warning, showPrivacyInfo = dataRepository.isUsingSharedKey()) }
-    }
-
-    companion object {
-        private val FREE_MODE_INSTANCE_IDS = FreeMode.entries.associateBy { it.instanceId }
     }
 
     private fun regenerate() {

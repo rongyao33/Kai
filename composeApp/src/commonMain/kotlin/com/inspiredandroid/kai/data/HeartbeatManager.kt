@@ -1,6 +1,8 @@
 package com.inspiredandroid.kai.data
 
 import androidx.compose.runtime.Immutable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
@@ -36,6 +38,7 @@ class HeartbeatManager(
 ) {
 
     private val json = SharedJson
+    private val mutex = Mutex()
 
     fun getConfig(): HeartbeatConfig {
         val raw = appSettings.getHeartbeatConfigJson()
@@ -59,7 +62,9 @@ class HeartbeatManager(
         val localNow = now.toLocalDateTime(TimeZone.currentSystemDefault())
         val currentHour = localNow.hour
 
-        val isActive = if (config.activeHoursStart < config.activeHoursEnd) {
+        val isActive = if (config.activeHoursStart == config.activeHoursEnd) {
+            currentHour == config.activeHoursStart
+        } else if (config.activeHoursStart < config.activeHoursEnd) {
             currentHour >= config.activeHoursStart && currentHour < config.activeHoursEnd
         } else {
             currentHour >= config.activeHoursStart || currentHour < config.activeHoursEnd
@@ -72,7 +77,7 @@ class HeartbeatManager(
         return elapsedMs >= intervalMs
     }
 
-    fun buildHeartbeatPrompt(
+    suspend fun buildHeartbeatPrompt(
         recentResponses: List<String> = emptyList(),
         pendingEmails: List<EmailMessage> = emptyList(),
         pendingSms: List<SmsMessage> = emptyList(),
@@ -86,7 +91,12 @@ class HeartbeatManager(
         val store = emailStore
         val accounts = if (emailEnabled && store != null) store.getAccounts() else emptyList()
         val emailAccounts: List<EmailAccountSummary> = accounts.map { account ->
-            val syncState = store.getSyncState(account.id)
+            val syncState = store?.getSyncState(account.id) ?: return@map EmailAccountSummary(
+                email = account.email,
+                unreadCount = 0,
+                lastSyncEpochMs = 0L,
+                lastError = null,
+            )
             EmailAccountSummary(
                 email = account.email,
                 unreadCount = syncState.unreadCount,
@@ -163,7 +173,7 @@ class HeartbeatManager(
         )
     }
 
-    fun recordHeartbeat(success: Boolean, error: String? = null) {
+    suspend fun recordHeartbeat(success: Boolean, error: String? = null) = mutex.withLock {
         val entry = HeartbeatLogEntry(
             timestampEpochMs = Clock.System.now().toEpochMilliseconds(),
             success = success,
@@ -197,5 +207,14 @@ class HeartbeatManager(
 
     fun markHeartbeatExecuted(config: HeartbeatConfig = getConfig()) {
         saveConfig(config.copy(lastHeartbeatEpochMs = Clock.System.now().toEpochMilliseconds()))
+    }
+
+    suspend fun performLearningMaintenance() {
+        val engine = metaLearningEngine ?: return
+        try {
+            engine.autoEvolve()
+            engine.intelligentCleanup()
+        } catch (_: Exception) {
+        }
     }
 }

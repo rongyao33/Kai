@@ -5,12 +5,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,7 +22,6 @@ import kai.composeapp.generated.resources.ic_settings
 import kai.composeapp.generated.resources.ic_volume_off
 import kai.composeapp.generated.resources.ic_volume_up
 import kai.composeapp.generated.resources.new_chat_content_description
-import kai.composeapp.generated.resources.sandbox_content_description
 import kai.composeapp.generated.resources.settings_content_description
 import kai.composeapp.generated.resources.toggle_speech_output_content_description
 import nl.marc_apps.tts.TextToSpeechInstance
@@ -39,12 +34,8 @@ internal fun TopBar(
     isSpeechOutputEnabled: Boolean,
     isSpeaking: Boolean,
     actions: ChatActions,
-    isChatHistoryEmpty: Boolean,
     hasSavedConversations: Boolean,
     onNavigateToSettings: () -> Unit,
-    isSandboxAvailable: Boolean,
-    isSandboxOpen: Boolean,
-    onToggleSandbox: () -> Unit,
     onShowHistory: () -> Unit,
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
@@ -53,7 +44,7 @@ internal fun TopBar(
             modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 64.dp),
         ) {
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
-                LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, onShowHistory, isSandboxAvailable, isSandboxOpen, onToggleSandbox)
+                LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, hasSavedConversations, onShowHistory)
             }
             Box(modifier = Modifier.align(Alignment.Center)) {
                 navigationTabBar()
@@ -66,7 +57,7 @@ internal fun TopBar(
         }
     } else {
         Row {
-            LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, onShowHistory, isSandboxAvailable, isSandboxOpen, onToggleSandbox)
+            LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, hasSavedConversations, onShowHistory)
             Spacer(Modifier.weight(1f))
             if (textToSpeech != null) {
                 SpeechToggleButton(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions)
@@ -91,12 +82,8 @@ private fun LeadingButtons(
     isSpeechOutputEnabled: Boolean,
     isSpeaking: Boolean,
     actions: ChatActions,
-    isChatHistoryEmpty: Boolean,
     hasSavedConversations: Boolean,
     onShowHistory: () -> Unit,
-    isSandboxAvailable: Boolean,
-    isSandboxOpen: Boolean,
-    onToggleSandbox: () -> Unit,
 ) {
     if (hasSavedConversations) {
         IconButton(
@@ -110,44 +97,21 @@ private fun LeadingButtons(
             )
         }
     }
-    if (!isChatHistoryEmpty) {
-        IconButton(
-            modifier = Modifier.handCursor(),
-            onClick = {
-                if (isSpeechOutputEnabled && isSpeaking) {
-                    actions.setIsSpeaking(false, "")
-                    textToSpeech?.stop()
-                }
-                actions.startNewChat()
-            },
-        ) {
-            Icon(
-                imageVector = vectorResource(Res.drawable.ic_add),
-                contentDescription = stringResource(Res.string.new_chat_content_description),
-                tint = MaterialTheme.colorScheme.onBackground,
-            )
-        }
-    }
-    if (isSandboxAvailable) {
-        IconToggleButton(
-            checked = isSandboxOpen,
-            onCheckedChange = { onToggleSandbox() },
-            modifier = Modifier.handCursor(),
-            colors = IconButtonDefaults.iconToggleButtonColors(
-                checkedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                checkedContentColor = MaterialTheme.colorScheme.primary,
-            ),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Dns,
-                contentDescription = stringResource(Res.string.sandbox_content_description),
-                tint = if (isSandboxOpen) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onBackground
-                },
-            )
-        }
+    IconButton(
+        modifier = Modifier.handCursor(),
+        onClick = {
+            if (isSpeechOutputEnabled && isSpeaking) {
+                actions.setIsSpeaking(false, "")
+                textToSpeech?.stop()
+            }
+            actions.startNewChat()
+        },
+    ) {
+        Icon(
+            imageVector = vectorResource(Res.drawable.ic_add),
+            contentDescription = stringResource(Res.string.new_chat_content_description),
+            tint = MaterialTheme.colorScheme.onBackground,
+        )
     }
 }
 

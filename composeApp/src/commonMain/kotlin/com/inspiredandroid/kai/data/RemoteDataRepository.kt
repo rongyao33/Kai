@@ -66,6 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
@@ -731,7 +732,7 @@ class RemoteDataRepository(
         compactHistoryIfNeeded()
 
         val messages = chatHistory.value
-        val systemPrompt = getActiveSystemPrompt()
+        val systemPrompt = getActiveSystemPrompt(userMessage = question)
 
         val fallbackEntries = getOrderedFallbackEntries().filter { hasValidInstanceApiKey(it.instanceId, it.service) }
 
@@ -1563,12 +1564,15 @@ class RemoteDataRepository(
     override fun startNewChat() {
         val currentHistory = chatHistory.value
         if (currentHistory.isNotEmpty()) {
+            val conversationId = _currentConversationId.value ?: "unknown"
             kotlinx.coroutines.GlobalScope.launch {
                 try {
                     val suggestions = metaLearningEngine.analyzeSessionForCrystallization()
                     suggestions.forEach { suggestion ->
-                        metaLearningEngine.crystallize(suggestion)
+                        metaLearningEngine.crystallize(suggestion, conversationId)
                     }
+                    metaLearningEngine.autoEvolve()
+                    metaLearningEngine.intelligentCleanup()
                 } catch (_: Exception) {
                 }
             }
@@ -1661,7 +1665,7 @@ class RemoteDataRepository(
         appSettings.setSoulText(text)
     }
 
-    override suspend fun getActiveSystemPrompt(variant: SystemPromptVariant): String? {
+    override suspend fun getActiveSystemPrompt(variant: SystemPromptVariant, userMessage: String?): String? {
         val soul = appSettings.getSoulText().ifEmpty { getString(Res.string.default_soul) }
         val memoryEnabled = appSettings.isMemoryEnabled()
         val schedulingEnabled = appSettings.isSchedulingEnabled()
@@ -1731,6 +1735,19 @@ class RemoteDataRepository(
             else -> ChatPromptUiMode.NONE
         }
 
+        val skills = skillStore.getActiveSkills()
+        val highConfidenceInsights = insightIndex.getHighConfidenceInsights(0.5f)
+        val contextInsights = if (!userMessage.isNullOrBlank()) {
+            metaLearningEngine.getRelevantInsightsForContext(userMessage)
+        } else {
+            emptyList()
+        }
+        val insights = (highConfidenceInsights + contextInsights).distinctBy { it.id }
+
+        for (insight in insights) {
+            insightIndex.recordTrigger(insight.id)
+        }
+
         return buildChatSystemPrompt(
             variant = variant,
             soul = soul,
@@ -1739,8 +1756,8 @@ class RemoteDataRepository(
             preferenceMemories = byCategory[MemoryCategory.PREFERENCE].orEmpty(),
             learningMemories = byCategory[MemoryCategory.LEARNING].orEmpty(),
             errorMemories = byCategory[MemoryCategory.ERROR].orEmpty(),
-            skills = skillStore.getActiveSkills(),
-            insights = insightIndex.getHighConfidenceInsights(0.5f),
+            skills = skills,
+            insights = insights,
             pendingTasks = pendingTasks,
             heartbeatAdditions = heartbeatAdditions,
             emailAccounts = emailAccounts,
@@ -1776,7 +1793,7 @@ class RemoteDataRepository(
         // Memory is always enabled, this method is kept for interface compatibility
     }
 
-    override fun getMemories(): List<MemoryEntry> = memoryStore.getAllMemories()
+    override suspend fun getMemories(): List<MemoryEntry> = memoryStore.getAllMemories()
 
     override suspend fun deleteMemory(key: String) {
         memoryStore.forget(key)
@@ -1809,13 +1826,17 @@ class RemoteDataRepository(
 
     override fun getSkills(): List<SkillEntry> = skillStore.getAllSkills()
 
+    override suspend fun deleteSkill(id: String): Boolean = skillStore.delete(id)
+
+    override suspend fun deleteInsight(id: String): Boolean = insightIndex.delete(id)
+
     override fun isSchedulingEnabled(): Boolean = appSettings.isSchedulingEnabled()
 
     override fun setSchedulingEnabled(enabled: Boolean) {
         appSettings.setSchedulingEnabled(enabled)
     }
 
-    override fun getScheduledTasks(): List<ScheduledTask> = taskStore.getAllTasks()
+    override suspend fun getScheduledTasks(): List<ScheduledTask> = taskStore.getAllTasks()
 
     override suspend fun cancelScheduledTask(id: String) {
         taskStore.removeTask(id)
@@ -1879,9 +1900,9 @@ class RemoteDataRepository(
 
     override fun getEmailPollIntervalMinutes(): Int = appSettings.getEmailPollIntervalMinutes()
 
-    override fun getPendingEmailCount(): Int = emailStore.getPending().size
+    override suspend fun getPendingEmailCount(): Int = emailStore.getPending().size
 
-    override fun getEmailSyncStates(): Map<String, EmailSyncState> = emailStore.getAllSyncStates()
+    override suspend fun getEmailSyncStates(): Map<String, EmailSyncState> = emailStore.getAllSyncStates()
 
     override suspend fun pollEmailAccount(accountId: String) {
         val account = emailStore.getAccount(accountId) ?: return

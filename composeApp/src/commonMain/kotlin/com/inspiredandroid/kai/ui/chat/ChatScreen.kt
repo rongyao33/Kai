@@ -103,8 +103,6 @@ import com.inspiredandroid.kai.ui.dynamicui.toSpeakableText
 import com.inspiredandroid.kai.ui.handCursor
 import com.inspiredandroid.kai.ui.markdown.KaiUiBlock
 import com.inspiredandroid.kai.ui.markdown.parseMarkdown
-import com.inspiredandroid.kai.ui.sandbox.SandboxTabsContent
-import com.inspiredandroid.kai.ui.settings.SandboxViewModel
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.fallback_answered_by
 import kai.composeapp.generated.resources.fallback_service_failed
@@ -132,7 +130,6 @@ fun ChatScreen(
     viewModel: ChatViewModel = koinViewModel(),
     textToSpeech: TextToSpeechInstance?,
     onNavigateToSettings: () -> Unit,
-    isSandboxAvailable: Boolean = false,
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
@@ -141,7 +138,6 @@ fun ChatScreen(
         uiState = uiState,
         textToSpeech = textToSpeech,
         onNavigateToSettings = onNavigateToSettings,
-        isSandboxAvailable = isSandboxAvailable,
         navigationTabBar = navigationTabBar,
     )
 }
@@ -151,7 +147,6 @@ fun ChatScreenContent(
     uiState: ChatUiState,
     textToSpeech: TextToSpeechInstance? = null,
     onNavigateToSettings: () -> Unit = {},
-    isSandboxAvailable: Boolean = false,
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
     if (uiState.isInteractiveMode && !uiState.isRestoring) {
@@ -161,7 +156,6 @@ fun ChatScreenContent(
             uiState = uiState,
             textToSpeech = textToSpeech,
             onNavigateToSettings = onNavigateToSettings,
-            isSandboxAvailable = isSandboxAvailable,
             navigationTabBar = navigationTabBar,
         )
     }
@@ -387,8 +381,9 @@ private fun InteractiveModeContent(
                 targetState = contentId,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
                 modifier = Modifier.fillMaxSize(),
-            ) { _ ->
-                val blocks = remember(lastAssistant.content) { parseMarkdown(lastAssistant.content).blocks }
+            ) { animatedContentId ->
+                val currentAssistant = if (animatedContentId == lastAssistant.id) lastAssistant else lastAssistant
+                val blocks = remember(currentAssistant.content) { parseMarkdown(currentAssistant.content).blocks }
                 val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
 
                 if (uiBlocks.isNotEmpty()) {
@@ -443,26 +438,11 @@ private fun ChatModeScreen(
     uiState: ChatUiState,
     textToSpeech: TextToSpeechInstance?,
     onNavigateToSettings: () -> Unit,
-    isSandboxAvailable: Boolean,
     navigationTabBar: (@Composable () -> Unit)?,
 ) {
     var showHistorySheet by remember { mutableStateOf(false) }
-    var isSandboxOpen by rememberSaveable { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // When the active conversation changes (e.g. user starts a new chat from the
-    // top bar or taps the heartbeat banner), collapse the sandbox view so the
-    // user lands on the chat they just opened. Tracking the previous id avoids
-    // firing on the initial composition — important when returning from Settings,
-    // where rememberSaveable has just restored isSandboxOpen.
-    var lastConversationId by remember { mutableStateOf(uiState.currentConversationId) }
-    LaunchedEffect(uiState.currentConversationId) {
-        if (lastConversationId != uiState.currentConversationId) {
-            if (isSandboxOpen) isSandboxOpen = false
-            lastConversationId = uiState.currentConversationId
-        }
-    }
 
     val conversationDeletedMsg = stringResource(Res.string.snackbar_conversation_deleted)
     val undoLabel = stringResource(Res.string.snackbar_undo)
@@ -498,12 +478,8 @@ private fun ChatModeScreen(
                 isSpeechOutputEnabled = uiState.isSpeechOutputEnabled,
                 isSpeaking = uiState.isSpeaking,
                 actions = uiState.actions,
-                isChatHistoryEmpty = uiState.history.isEmpty(),
                 hasSavedConversations = filteredConversations.any { it.id != uiState.currentConversationId },
                 onNavigateToSettings = onNavigateToSettings,
-                isSandboxAvailable = isSandboxAvailable,
-                isSandboxOpen = isSandboxOpen,
-                onToggleSandbox = { isSandboxOpen = !isSandboxOpen },
                 onShowHistory = {
                     keyboardController?.hide()
                     showHistorySheet = true
@@ -516,7 +492,6 @@ private fun ChatModeScreen(
                 onTap = {
                     uiState.heartbeatConversationId?.let { uiState.actions.loadConversation(it) }
                     uiState.actions.clearUnreadHeartbeat()
-                    isSandboxOpen = false
                 },
                 onDismiss = {
                     uiState.actions.clearUnreadHeartbeat()
@@ -540,20 +515,7 @@ private fun ChatModeScreen(
                 )
             }
 
-            if (isSandboxOpen) {
-                val sandboxViewModel = koinViewModel<SandboxViewModel>()
-                val sandboxState by sandboxViewModel.state.collectAsStateWithLifecycle()
-                SandboxTabsContent(
-                    sandboxState = sandboxState,
-                    onSetupSandbox = sandboxViewModel::onSetupSandbox,
-                    onCancelSandbox = sandboxViewModel::onCancelSandbox,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                )
-            } else {
-                Box(Modifier.weight(1f)) {
+            Box(Modifier.weight(1f)) {
                     var isDropping by remember {
                         mutableStateOf(false)
                     }
@@ -597,24 +559,19 @@ private fun ChatModeScreen(
                             val componentScope = rememberCoroutineScope()
 
                             LaunchedEffect(uiState.history.size) {
-                                // Capture history at effect start to prevent race conditions
                                 val history = uiState.history
                                 if (history.isNotEmpty()) {
                                     listState.scrollToItem(history.lastIndex)
                                     val lastMessage = history.last()
                                     if (uiState.isSpeechOutputEnabled && lastMessage.role == History.Role.ASSISTANT) {
-                                        componentScope.launch(getBackgroundDispatcher()) {
-                                            textToSpeech?.stop()
-                                            uiState.actions.setIsSpeaking(true, lastMessage.id)
-                                            try {
-                                                textToSpeech?.say(lastMessage.content.toSpeakableText())
-                                            } catch (_: TextToSpeechSynthesisInterruptedError) {
-                                                // Speech was interrupted by user
-                                            } catch (_: Exception) {
-                                                // Handle TTS errors gracefully (service failure, audio issues, etc.)
-                                            } finally {
-                                                uiState.actions.setIsSpeaking(false, lastMessage.id)
-                                            }
+                                        textToSpeech?.stop()
+                                        uiState.actions.setIsSpeaking(true, lastMessage.id)
+                                        try {
+                                            textToSpeech?.say(lastMessage.content.toSpeakableText())
+                                        } catch (_: TextToSpeechSynthesisInterruptedError) {
+                                        } catch (_: Exception) {
+                                        } finally {
+                                            uiState.actions.setIsSpeaking(false, lastMessage.id)
                                         }
                                     }
                                 }
@@ -785,21 +742,18 @@ private fun ChatModeScreen(
                         }
                     }
                 }
-            }
 
-            if (!isSandboxOpen) {
-                QuestionInput(
-                    files = uiState.files,
-                    addFile = uiState.actions.addFile,
-                    removeFile = uiState.actions.removeFile,
-                    ask = uiState.actions.ask,
-                    supportedFileExtensions = uiState.supportedFileExtensions,
-                    isLoading = uiState.isLoading,
-                    cancel = uiState.actions.cancel,
-                    availableServices = uiState.availableServices,
-                    onSelectService = uiState.actions.selectService,
-                )
-            }
+            QuestionInput(
+                files = uiState.files,
+                addFile = uiState.actions.addFile,
+                removeFile = uiState.actions.removeFile,
+                ask = uiState.actions.ask,
+                supportedFileExtensions = uiState.supportedFileExtensions,
+                isLoading = uiState.isLoading,
+                cancel = uiState.actions.cancel,
+                availableServices = uiState.availableServices,
+                onSelectService = uiState.actions.selectService,
+            )
         }
         SnackbarHost(
             hostState = snackbarHostState,
@@ -815,7 +769,6 @@ private fun ChatModeScreen(
             currentConversationId = uiState.currentConversationId,
             actions = uiState.actions,
             onDismiss = { showHistorySheet = false },
-            onConversationSelected = { isSandboxOpen = false },
         )
     }
 }

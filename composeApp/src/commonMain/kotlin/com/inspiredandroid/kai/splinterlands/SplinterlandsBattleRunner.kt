@@ -370,8 +370,8 @@ class SplinterlandsBattleRunner(
             val splinter = COLOR_TO_SPLINTER[color] ?: color
             if (color in inactiveColors || splinter in inactiveColors) continue
             when (cardType) {
-                "Summoner" -> summoners.add(buildSummonerEntry(card, detail))
-                "Monster" -> monsters.add(buildCardEntry(card, detail))
+                "Summoner" -> buildSummonerEntry(card, detail)?.let { summoners.add(it) }
+                "Monster" -> buildCardEntry(card, detail)?.let { monsters.add(it) }
             }
         }
 

@@ -104,7 +104,6 @@ object EmailTools {
             return try {
                 imap.connect()
                 val loginOk = imap.login(email, password)
-                imap.logout()
 
                 if (!loginOk) {
                     return mapOf(
@@ -143,6 +142,8 @@ object EmailTools {
                     "error" to "Connection failed: ${e.message}" +
                         (detected?.note?.let { " Note: $it" } ?: ""),
                 )
+            } finally {
+                try { imap.logout() } catch (_: Exception) {}
             }
         }
     }
@@ -418,13 +419,21 @@ object EmailTools {
 
             return try {
                 withImapSession(account, emailStore) { imap ->
-                    val uids = when {
-                        fromQuery != null -> imap.searchByFrom(fromQuery)
-                        subjectQuery != null -> imap.searchBySubject(subjectQuery)
-                        sinceDate != null -> imap.searchSince(sinceDate)
-                        else -> emptyList()
+                    var uids: List<Long>? = null
+                    if (fromQuery != null) {
+                        val result = imap.searchByFrom(fromQuery)
+                        uids = if (uids == null) result else uids.intersect(result).toList()
                     }
-                    val messages = imap.fetchHeaders(uids.takeLast(20), account.id)
+                    if (subjectQuery != null) {
+                        val result = imap.searchBySubject(subjectQuery)
+                        uids = if (uids == null) result else uids.intersect(result).toList()
+                    }
+                    if (sinceDate != null) {
+                        val result = imap.searchSince(sinceDate)
+                        uids = if (uids == null) result else uids.intersect(result).toList()
+                    }
+                    val finalUids = uids ?: emptyList()
+                    val messages = imap.fetchHeaders(finalUids.takeLast(20), account.id)
                     mapOf(
                         "success" to true,
                         "count" to messages.size,
