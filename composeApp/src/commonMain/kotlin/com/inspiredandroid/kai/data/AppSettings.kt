@@ -496,6 +496,39 @@ class AppSettings(private val settings: Settings) {
         settings.putString(KEY_SOUL, text)
     }
 
+    // User Profile
+    fun getUserProfileJson(): String = settings.getString(KEY_USER_PROFILE, "")
+
+    fun setUserProfileJson(json: String) {
+        settings.putString(KEY_USER_PROFILE, json)
+    }
+
+    // Private Vault
+    fun getPrivateVaultJson(): String = settings.getString(KEY_PRIVATE_VAULT, "")
+
+    fun setPrivateVaultJson(json: String) {
+        settings.putString(KEY_PRIVATE_VAULT, json)
+    }
+
+    fun getSystemConfigJson(): String = settings.getString(KEY_SYSTEM_CONFIG, "")
+
+    fun setSystemConfigJson(json: String) {
+        settings.putString(KEY_SYSTEM_CONFIG, json)
+    }
+
+    fun getSystemConfig(): SystemConfig {
+        val json = getSystemConfigJson()
+        return if (json.isNotBlank()) {
+            try {
+                SharedJson.decodeFromString<SystemConfig>(json)
+            } catch (e: Exception) {
+                SystemConfig()
+            }
+        } else {
+            SystemConfig()
+        }
+    }
+
     // Memory
     fun isMemoryEnabled(): Boolean = settings.getBoolean(KEY_MEMORY_ENABLED, true)
 
@@ -1249,6 +1282,9 @@ class AppSettings(private val settings: Settings) {
         const val KEY_MIGRATION_COMPLETE = "migration_complete_v1"
         const val KEY_TOOL_PREFIX = "tool_enabled_"
         const val KEY_SOUL = "soul_text"
+        const val KEY_USER_PROFILE = "user_profile"
+        const val KEY_PRIVATE_VAULT = "private_vault"
+        const val KEY_SYSTEM_CONFIG = "system_config"
         const val KEY_MEMORY_ENABLED = "memory_enabled"
         const val KEY_MEMORY_INSTRUCTIONS = "memory_instructions"
         const val KEY_AGENT_MEMORIES = "agent_memories"

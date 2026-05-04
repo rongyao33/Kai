@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.inspiredandroid.kai.data.Conversation
 import com.inspiredandroid.kai.data.DataRepository
+import com.inspiredandroid.kai.data.FileGeneratorRegistry
+import com.inspiredandroid.kai.data.FileOutput
 import com.inspiredandroid.kai.data.FreeMode
 import com.inspiredandroid.kai.data.Service
 import com.inspiredandroid.kai.data.ServiceEntry
@@ -11,6 +13,7 @@ import com.inspiredandroid.kai.data.TaskScheduler
 import com.inspiredandroid.kai.data.UiSubmission
 import com.inspiredandroid.kai.getBackgroundDispatcher
 import com.inspiredandroid.kai.network.toUiError
+import com.inspiredandroid.kai.saveFileToDevice
 import com.inspiredandroid.kai.ui.markdown.KaiUiBlock
 import com.inspiredandroid.kai.ui.markdown.KaiUiError
 import com.inspiredandroid.kai.ui.markdown.parseMarkdown
@@ -78,6 +81,7 @@ class ChatViewModel(
         goBackInteractiveMode = ::goBackInteractiveMode,
         sendSmsDraft = ::sendSmsDraft,
         discardSmsDraft = ::discardSmsDraft,
+        saveGeneratedFile = ::saveGeneratedFile,
     )
     private val freeModeNames: Map<FreeMode, String> = FreeMode.entries.associateWith { "Free ${it.modelId.replaceFirstChar { c -> c.uppercase() }}" }
     private var currentJob: Job? = null
@@ -434,6 +438,14 @@ class ChatViewModel(
     private fun discardSmsDraft(draftId: String) {
         viewModelScope.launch(backgroundDispatcher) {
             dataRepository.discardSmsDraft(draftId)
+        }
+    }
+
+    private fun saveGeneratedFile(file: FileOutput) {
+        viewModelScope.launch {
+            val generator = FileGeneratorRegistry.getGenerator(file.extension)
+            val bytes = generator?.generate(file.content) ?: file.content.toByteArray()
+            saveFileToDevice(bytes, file.filename.substringBeforeLast('.'), file.extension)
         }
     }
 

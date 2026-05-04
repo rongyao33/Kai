@@ -611,6 +611,42 @@ class MetaLearningEngine(
     ): SkillMatchResult {
         return taskDecomposer.shouldUseSkill(task, skill)
     }
+    
+    fun recordSessionComplete(
+        sessionId: String,
+        toolSequence: List<ToolExecutionRecord>,
+        userGoal: String,
+    ): SessionReflexion {
+        val reflexions = toolSequence.mapIndexed { index, record ->
+            ToolReflexion(
+                id = "${sessionId}_$index",
+                toolName = record.toolName,
+                args = emptyMap(),
+                result = record.resultSummary,
+                success = record.success,
+                basicValidation = BasicValidation(isValid = record.success),
+                deepAnalysis = null,
+                timestamp = System.currentTimeMillis(),
+            )
+        }
+        return reflexionEngine.reflectOnSessionComplete(sessionId, reflexions, userGoal)
+    }
+    
+    suspend fun reflexionAcrossSessions(): CrossSessionReflexion {
+        return reflexionEngine.reflexionAcrossSessions()
+    }
+    
+    suspend fun proactivelyCompleteKnowledge(): List<ProactiveInference> {
+        return enhancedKnowledgeGraph.proactivelyCompleteKnowledge()
+    }
+    
+    suspend fun findReasoningPaths(query: String): List<ReasoningPath> {
+        return enhancedKnowledgeGraph.findReasoningPaths(query)
+    }
+    
+    suspend fun identifyMissingRelations(): List<KnowledgeGap> {
+        return enhancedKnowledgeGraph.identifyMissingRelations()
+    }
 
     suspend fun intelligentCleanup(): CleanupReport {
         val report = CleanupReport()

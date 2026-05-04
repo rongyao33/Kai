@@ -670,6 +670,10 @@ private fun ChatModeScreen(
                                                         } else {
                                                             null
                                                         },
+                                                        fileAttachments = history.fileAttachments,
+                                                        onSaveFile = if (history.fileAttachments.isNotEmpty()) {
+                                                            { file -> uiState.actions.saveGeneratedFile(file) }
+                                                        } else null,
                                                     )
                                                     if (history.fallbackServiceName != null) {
                                                         androidx.compose.material3.Text(

@@ -1844,12 +1844,6 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     SettingsCard {
-                        SoulEditor(
-                            soulText = uiState.soulText,
-                            onSaveSoul = actions.onSaveSoul,
-                        )
-                    }
-                    SettingsCard {
                         ScheduledTaskList(
                             tasks = uiState.scheduledTasks,
                             heartbeatLog = uiState.heartbeatLog,
@@ -1933,12 +1927,6 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SettingsCard {
-                    SoulEditor(
-                        soulText = uiState.soulText,
-                        onSaveSoul = actions.onSaveSoul,
-                    )
-                }
                 SettingsCard {
                     ScheduledTaskList(
                         tasks = uiState.scheduledTasks,

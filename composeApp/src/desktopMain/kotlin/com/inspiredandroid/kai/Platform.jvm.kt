@@ -32,6 +32,8 @@ import com.inspiredandroid.kai.tools.MemorySearchTools
 import com.inspiredandroid.kai.tools.MetaLearningTools
 import com.inspiredandroid.kai.tools.ParallelExecuteTool
 import com.inspiredandroid.kai.tools.ProcessManagerTool
+import com.inspiredandroid.kai.tools.ProfileTools
+import com.inspiredandroid.kai.tools.SystemConfigTools
 import com.inspiredandroid.kai.tools.SchedulingTools
 import com.inspiredandroid.kai.tools.SessionSearchTools
 import com.inspiredandroid.kai.tools.ShellCommandTool
@@ -165,6 +167,8 @@ actual fun getAvailableTools(): List<Tool> {
         addAll(SkillTools.getSkillTools(skillStore))
         addAll(MetaLearningTools.getMetaLearningTools(skillStore, insightIndex))
         addAll(SessionSearchTools.getSessionSearchTools(conversationStorage))
+        addAll(ProfileTools(appSettings).getToolObjects())
+        addAll(SystemConfigTools(appSettings).getToolObjects())
         if (appSettings.isSchedulingEnabled()) {
             addAll(SchedulingTools.getSchedulingTools(taskStore))
             addAll(HeartbeatTools.getHeartbeatTools(memoryStore, appSettings))

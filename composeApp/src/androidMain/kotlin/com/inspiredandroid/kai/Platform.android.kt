@@ -56,6 +56,8 @@ import com.inspiredandroid.kai.tools.SchedulingTools
 import com.inspiredandroid.kai.tools.SessionSearchTools
 import com.inspiredandroid.kai.tools.ShellCommandTool
 import com.inspiredandroid.kai.tools.SkillTools
+import com.inspiredandroid.kai.tools.ProfileTools
+import com.inspiredandroid.kai.tools.SystemConfigTools
 import com.inspiredandroid.kai.tools.SmsTools
 import com.inspiredandroid.kai.tools.WebSearchTool
 import com.russhwolf.settings.BuildConfig
@@ -294,6 +296,8 @@ actual fun getAvailableTools(): List<Tool> {
         addAll(SkillTools.getSkillTools(skillStore))
         addAll(MetaLearningTools.getMetaLearningTools(skillStore, insightIndex))
         addAll(SessionSearchTools.getSessionSearchTools(conversationStorage))
+        addAll(ProfileTools(appSettings).getToolObjects())
+        addAll(SystemConfigTools(appSettings).getToolObjects())
         if (appSettings.isSchedulingEnabled()) {
             addAll(SchedulingTools.getSchedulingTools(taskStore))
             addAll(HeartbeatTools.getHeartbeatTools(memoryStore, appSettings))

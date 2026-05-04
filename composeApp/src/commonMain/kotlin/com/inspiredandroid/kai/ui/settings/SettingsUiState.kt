@@ -63,7 +63,6 @@ data class SettingsUiState(
     val expandedServiceId: String? = null,
     val availableServicesToAdd: ImmutableList<Service> = persistentListOf(),
     val tools: ImmutableList<ToolInfo> = persistentListOf(),
-    val soulText: String = "",
     val isDynamicUiEnabled: Boolean = true,
     val isOledModeEnabled: Boolean = false,
     val memories: ImmutableList<MemoryEntry> = persistentListOf(),

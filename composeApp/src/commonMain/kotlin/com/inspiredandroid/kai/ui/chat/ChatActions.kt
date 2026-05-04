@@ -1,6 +1,7 @@
 package com.inspiredandroid.kai.ui.chat
 
 import androidx.compose.runtime.Immutable
+import com.inspiredandroid.kai.data.FileOutput
 import io.github.vinceglb.filekit.PlatformFile
 
 @Immutable
@@ -28,4 +29,5 @@ data class ChatActions(
     val goBackInteractiveMode: () -> Unit,
     val sendSmsDraft: (String) -> Unit,
     val discardSmsDraft: (String) -> Unit,
+    val saveGeneratedFile: (FileOutput) -> Unit,
 )

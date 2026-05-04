@@ -68,7 +68,6 @@ class SettingsViewModel(
         configuredServices = buildConfiguredServiceEntries().toImmutableList(),
         availableServicesToAdd = computeAvailableServices().toImmutableList(),
         tools = dataRepository.getToolDefinitions().toImmutableList(),
-        soulText = dataRepository.getSoulText(),
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isOledModeEnabled = dataRepository.isOledModeEnabled(),
         memories = dataRepository.getMemories().toImmutableList(),
@@ -137,7 +136,6 @@ class SettingsViewModel(
         onChangeBaseUrl = ::onChangeBaseUrl,
         onSelectModel = ::onSelectModel,
         onToggleTool = ::onToggleTool,
-        onSaveSoul = ::onSaveSoul,
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleOledMode = ::onToggleOledMode,
         onDeleteMemory = ::onDeleteMemory,
@@ -405,11 +403,6 @@ class SettingsViewModel(
         val entry = _state.value.configuredServices.find { it.instanceId == instanceId } ?: return
         dataRepository.updateInstanceSelectedModel(instanceId, entry.service, modelId)
         refreshInstanceModels(instanceId)
-    }
-
-    private fun onSaveSoul(text: String) {
-        dataRepository.setSoulText(text)
-        _state.update { it.copy(soulText = text) }
     }
 
     private fun onToggleDynamicUi(enabled: Boolean) {

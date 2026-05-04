@@ -225,6 +225,64 @@ internal const val DEFAULT_KG_AWARENESS_SECTION =
         "\n" +
         "When facing complex problems, consider what relationships might exist in your KG."
 
+internal const val DEFAULT_USER_PROFILE_SECTION =
+    "## User Profile\n" +
+        "You maintain a comprehensive user profile that is updated automatically based on interactions:\n" +
+        "\n" +
+        "**Profile Fields:**\n" +
+        "- name, age, gender, occupation, location, language, timezone\n" +
+        "- communicationStyle: FORMAL, CASUAL, TECHNICAL, FRIENDLY, CONCISE\n" +
+        "- interests, goals, constraints\n" +
+        "- behavioralPatterns: peakActivityHours, commonTasks, preferredTools\n" +
+        "- preferences: responseLength, detailLevel, tone\n" +
+        "\n" +
+        "**Update Triggers:**\n" +
+        "- User mentions personal info → use `update_user_profile`\n" +
+        "- User shows a pattern → use `add_behavioral_pattern`\n" +
+        "- Build understanding proactively over time\n" +
+        "\n" +
+        "The profile helps you personalize responses to user preferences."
+
+internal const val DEFAULT_PRIVATE_VAULT_SECTION =
+    "## Private Vault\n" +
+        "You have access to a secure vault for storing sensitive information:\n" +
+        "\n" +
+        "**Use Cases:**\n" +
+        "- Store API keys, passwords, tokens when user mentions them\n" +
+        "- Remember account credentials for services the user uses\n" +
+        "- Keep sensitive notes that shouldn't be in regular memory\n" +
+        "\n" +
+        "**Categories:** PASSWORD, API_KEY, ACCOUNT, FINANCIAL, MEDICAL, IDENTITY, NOTE\n" +
+        "\n" +
+        "**Tools:**\n" +
+        "- `vault_store`: Store sensitive data securely\n" +
+        "- `vault_retrieve`: Get stored values (returns masked value for security)\n" +
+        "- `vault_list`: List all stored keys (values hidden)\n" +
+        "- `vault_delete`: Remove an entry\n" +
+        "- `vault_search`: Find entries by key or tags\n" +
+        "\n" +
+        "**Security:** Stored data is encrypted. Values are NEVER logged or exposed in plain text."
+
+internal const val DEFAULT_FILE_OUTPUT_SECTION =
+    "## File Output\n" +
+        "You can generate files for users to download:\n" +
+        "\n" +
+        "**Supported Formats:**\n" +
+        "- CSV, JSON, TXT (simple text data)\n" +
+        "- HTML, MD (documents)\n" +
+        "\n" +
+        "**How to Output:**\n" +
+        "Wrap file content in markers:\n" +
+        "```\n" +
+        "[FILE:filename.csv]\n" +
+        "content here\n" +
+        "[/FILE]\n" +
+        "```\n" +
+        "\n" +
+        "**Example:**\n" +
+        "When user asks for data export, present results as a downloadable file alongside your explanation.\n" +
+        "Multiple files can be output in one response."
+
 internal const val DEFAULT_ADVANCED_TOOLS_SECTION =
     "## Advanced Tools\n" +
         "You have access to powerful tools for complex tasks:\n\n" +
@@ -245,6 +303,28 @@ internal const val DEFAULT_ADVANCED_TOOLS_SECTION =
         "- Tools: curl, wget, git, jq, ffmpeg, imagemagick, sqlite, redis\n" +
         "- Debug: gdb, strace, network tools (nmap, netcat)\n" +
         "- Persistent shell session within conversation"
+
+internal const val DEFAULT_SYSTEM_CONFIG_SECTION =
+    "## System Configuration\n" +
+        "You can customize system behavior through configuration:\n" +
+        "\n" +
+        "**Feature Flags:**\n" +
+        "- `toggle_feature`: Enable/disable system features\n" +
+        "- Features: enableReflexion, enableKnowledgeGraph, enableTaskDecomposition, enableDeepResearch, enableSoulLearning, enableFileOutput\n" +
+        "\n" +
+        "**Custom Sections:**\n" +
+        "- `edit_system_section`: Add custom guidance sections\n" +
+        "- `list_sections`: View all custom sections\n" +
+        "- `reset_section`: Remove a custom section\n" +
+        "\n" +
+        "**Content Deduplication:**\n" +
+        "- System automatically prevents duplicate content in Soul and custom sections\n" +
+        "- If promotion is rejected due to duplication, use the existing content instead\n" +
+        "- Use `memory_reinforce` to strengthen existing memories instead of promoting duplicates\n" +
+        "- Similarity threshold: 80%\n" +
+        "\n" +
+        "**Change History:**\n" +
+        "- `get_change_history`: View configuration change history"
 
 /**
  * Composes the full chat system prompt for the given [variant].
@@ -289,7 +369,15 @@ internal fun buildChatSystemPrompt(
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_KG_AWARENESS_SECTION)
         if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_USER_PROFILE_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_PRIVATE_VAULT_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_FILE_OUTPUT_SECTION)
+        if (isNotEmpty()) append("\n\n")
         append(DEFAULT_ADVANCED_TOOLS_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_SYSTEM_CONFIG_SECTION)
     }
 
     // Memory category sections are emitted for BOTH variants. memory_store / memory_forget /
@@ -338,6 +426,17 @@ internal fun buildChatSystemPrompt(
             ChatPromptUiMode.INTERACTIVE_UI -> appendInteractiveUiSection()
             ChatPromptUiMode.NONE -> {}
         }
+    }
+}
+
+fun StringBuilder.appendCustomSections(sections: Map<String, String>) {
+    if (sections.isEmpty()) return
+    if (isNotEmpty()) append("\n\n")
+    append("## Custom Agent Configuration\n")
+    sections.forEach { (id, content) ->
+        append("\n")
+        append(content)
+        append("\n")
     }
 }
 

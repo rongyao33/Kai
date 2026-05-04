@@ -1,6 +1,7 @@
 package com.inspiredandroid.kai.tools
 
 import com.inspiredandroid.kai.data.AppSettings
+import com.inspiredandroid.kai.data.ContentDeduplication
 import com.inspiredandroid.kai.data.MemoryStore
 import com.inspiredandroid.kai.network.tools.ParameterSchema
 import com.inspiredandroid.kai.network.tools.Tool
@@ -15,7 +16,7 @@ object HeartbeatTools {
     fun promoteLearningTool(memoryStore: MemoryStore, appSettings: AppSettings) = object : Tool {
         override val schema = ToolSchema(
             name = "promote_learning",
-            description = "Promote a well-established memory into the soul/system prompt. Use this for patterns that have been reinforced multiple times and should become permanent behavior.",
+            description = "Promote a well-established memory into the soul/system prompt. Use this for patterns that have been reinforced multiple times and should become permanent behavior. Checks for duplicate content before promoting.",
             parameters = mapOf(
                 "memory_key" to ParameterSchema(type = "string", description = "The key of the memory to promote", required = true),
                 "soul_addition" to ParameterSchema(type = "string", description = "The text to append to the soul/system prompt", required = true),
@@ -31,6 +32,26 @@ object HeartbeatTools {
             val memories = memoryStore.getAllMemories()
             val memory = memories.find { it.key == memoryKey }
                 ?: return mapOf("success" to false, "error" to "Memory not found: $memoryKey")
+
+            // Check for duplicates
+            val systemConfig = appSettings.getSystemConfig()
+            val memoryContents = memories.filter { it.key != memoryKey }.map { it.content }
+            val dedupResult = ContentDeduplication.checkForDuplicate(
+                newContent = soulAddition,
+                soulText = appSettings.getSoulText(),
+                customSections = systemConfig.editableSections,
+                memoryContents = memoryContents,
+            )
+
+            if (dedupResult.isDuplicate) {
+                return mapOf(
+                    "success" to false,
+                    "error" to "Duplicate content detected",
+                    "duplicate_source" to dedupResult.duplicateSource,
+                    "similarity" to dedupResult.similarity,
+                    "suggestion" to dedupResult.suggestion,
+                )
+            }
 
             // Append to soul text
             val currentSoul = appSettings.getSoulText()

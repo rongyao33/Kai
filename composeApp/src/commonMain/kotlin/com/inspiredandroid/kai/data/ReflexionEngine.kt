@@ -48,6 +48,63 @@ enum class ReflexionStrategy {
     COMPOSITION,
 }
 
+@Immutable
+data class SessionReflexion(
+    val sessionId: String,
+    val outcome: SessionOutcome,
+    val toolSequence: List<String>,
+    val totalSteps: Int,
+    val failedSteps: Int,
+    val criticalFailurePoint: Int? = null,
+    val lesson: String,
+    val alternativeStrategy: String? = null,
+    val tags: List<String> = emptyList(),
+    val timestamp: Long,
+)
+
+enum class SessionOutcome {
+    SUCCESS,
+    SUCCESS_WITH_DIFFICULTY,
+    PARTIAL_FAILURE,
+    COMPLETE_FAILURE,
+}
+
+@Immutable
+data class CrossSessionReflexion(
+    val sessionCount: Int,
+    val failurePatterns: List<CrossSessionFailurePattern>,
+    val skillCombinationSuggestions: List<CrossSessionSkillCombination>,
+    val knowledgeGaps: List<CrossSessionKnowledgeGap>,
+    val improvementAreas: List<String>,
+    val timestamp: Long,
+)
+
+@Immutable
+data class CrossSessionFailurePattern(
+    val toolName: String,
+    val occurrenceCount: Int,
+    val commonRootCause: String,
+    val suggestedFix: String,
+    val confidence: Float,
+)
+
+@Immutable
+data class CrossSessionSkillCombination(
+    val skill1: String,
+    val skill2: String,
+    val combinedUseCase: String,
+    val estimatedSuccessRate: Float,
+)
+
+@Immutable
+data class CrossSessionKnowledgeGap(
+    val subject: String,
+    val predicate: String,
+    val obj: String,
+    val importance: Float,
+    val suggestedExploration: String,
+)
+
 @OptIn(ExperimentalTime::class)
 class ReflexionEngine(
     private val insightIndex: InsightIndex?,
@@ -56,11 +113,14 @@ class ReflexionEngine(
     private val skillStore: SkillStore?,
 ) {
     private val reflexionHistory = mutableListOf<ToolReflexion>()
+    private val sessionReflexions = mutableListOf<SessionReflexion>()
     
     companion object {
         private const val MAX_HISTORY = 50
+        private const val MAX_SESSION_HISTORY = 20
         private const val RETRY_THRESHOLD = 0.7f
         private const val SELF_CORRECT_CONFIDENCE = 0.6f
+        private const val CROSS_SESSION_MIN_SAMPLES = 5
     }
     
     fun reflectOnToolResult(
@@ -119,6 +179,259 @@ class ReflexionEngine(
         )
     }
     
+    fun reflectOnSessionComplete(
+        sessionId: String,
+        toolSequence: List<ToolReflexion>,
+        userGoal: String,
+    ): SessionReflexion {
+        val totalSteps = toolSequence.size
+        val failedSteps = toolSequence.count { !it.success }
+        val success = failedSteps == 0
+        val partialFailure = failedSteps in 1..(totalSteps / 2)
+        
+        val outcome = when {
+            success -> SessionOutcome.SUCCESS
+            failedSteps == totalSteps -> SessionOutcome.COMPLETE_FAILURE
+            partialFailure -> SessionOutcome.PARTIAL_FAILURE
+            else -> SessionOutcome.SUCCESS_WITH_DIFFICULTY
+        }
+        
+        val criticalFailurePoint = if (failedSteps > 0) {
+            toolSequence.indexOfFirst { !it.success }
+        } else null
+        
+        val lesson = buildSessionLesson(toolSequence, outcome, userGoal)
+        
+        val alternativeStrategy = if (outcome != SessionOutcome.SUCCESS) {
+            buildAlternativeStrategy(toolSequence, outcome)
+        } else null
+        
+        val tags = extractSessionTags(toolSequence, outcome)
+        
+        val sessionReflexion = SessionReflexion(
+            sessionId = sessionId,
+            outcome = outcome,
+            toolSequence = toolSequence.map { it.toolName },
+            totalSteps = totalSteps,
+            failedSteps = failedSteps,
+            criticalFailurePoint = criticalFailurePoint,
+            lesson = lesson,
+            alternativeStrategy = alternativeStrategy,
+            tags = tags,
+            timestamp = Clock.System.now().toEpochMilliseconds(),
+        )
+        
+        addSessionReflexion(sessionReflexion)
+        
+        return sessionReflexion
+    }
+    
+    suspend fun reflexionAcrossSessions(): CrossSessionReflexion {
+        if (sessionReflexions.size < CROSS_SESSION_MIN_SAMPLES) {
+            return CrossSessionReflexion(
+                sessionCount = sessionReflexions.size,
+                failurePatterns = emptyList(),
+                skillCombinationSuggestions = emptyList(),
+                knowledgeGaps = emptyList(),
+                improvementAreas = listOf("Not enough session data for cross-session analysis"),
+                timestamp = Clock.System.now().toEpochMilliseconds(),
+            )
+        }
+        
+        val failurePatterns = analyzeFailurePatterns()
+        val skillCombinations = analyzeSkillCombinations()
+        val knowledgeGaps = analyzeKnowledgeGaps()
+        val improvementAreas = suggestImprovements(failurePatterns, skillCombinations)
+        
+        return CrossSessionReflexion(
+            sessionCount = sessionReflexions.size,
+            failurePatterns = failurePatterns,
+            skillCombinationSuggestions = skillCombinations,
+            knowledgeGaps = knowledgeGaps,
+            improvementAreas = improvementAreas,
+            timestamp = Clock.System.now().toEpochMilliseconds(),
+        )
+    }
+    
+    private fun analyzeFailurePatterns(): List<CrossSessionFailurePattern> {
+        val failureByTool = sessionReflexions
+            .filter { it.outcome != SessionOutcome.SUCCESS }
+            .flatMap { session -> 
+                session.toolSequence.mapIndexedNotNull { index, tool ->
+                    if (session.failedSteps > 0 && index == session.criticalFailurePoint) {
+                        tool to session.lesson
+                    } else null
+                }
+            }
+            .groupBy { it.first }
+        
+        return failureByTool.map { (tool, lessons) ->
+            val rootCause = lessons
+                .groupingBy { it.second }
+                .eachCount()
+                .maxByOrNull { it.value }
+                ?.key ?: "Unknown"
+            
+            CrossSessionFailurePattern(
+                toolName = tool,
+                occurrenceCount = lessons.size,
+                commonRootCause = rootCause,
+                suggestedFix = buildSuggestedFix(tool, rootCause),
+                confidence = minOf(lessons.size / 10f, 1f),
+            )
+        }.sortedByDescending { it.occurrenceCount }
+         .take(5)
+    }
+    
+    private fun analyzeSkillCombinations(): List<CrossSessionSkillCombination> {
+        val sequentialTools = sessionReflexions
+            .filter { it.outcome == SessionOutcome.SUCCESS }
+            .map { session -> 
+                session.toolSequence.windowed(2, 1).map { pair -> pair[0] to pair[1] }
+            }
+            .flatten()
+            .groupBy { it }
+            .mapValues { (_, pairs) -> pairs.size }
+        
+        return sequentialTools
+            .filter { (_, count) -> count >= 2 }
+            .map { (pair, count) ->
+                val (tool1, tool2) = pair
+                CrossSessionSkillCombination(
+                    skill1 = tool1,
+                    skill2 = tool2,
+                    combinedUseCase = "Often used together: $tool1 then $tool2",
+                    estimatedSuccessRate = minOf(count / 5f, 0.9f),
+                )
+            }
+            .sortedByDescending { it.estimatedSuccessRate }
+            .take(3)
+    }
+    
+    private fun analyzeKnowledgeGaps(): List<CrossSessionKnowledgeGap> {
+        val gaps = mutableListOf<CrossSessionKnowledgeGap>()
+        
+        val failedTools = sessionReflexions
+            .filter { it.outcome == SessionOutcome.COMPLETE_FAILURE }
+            .flatMap { it.toolSequence }
+            .distinct()
+        
+        failedTools.take(3).forEach { tool ->
+            gaps.add(
+                CrossSessionKnowledgeGap(
+                    subject = tool,
+                    predicate = "fails_because",
+                    obj = "unknown_prerequisite",
+                    importance = 0.7f,
+                    suggestedExploration = "Investigate what conditions are needed for $tool to succeed",
+                )
+            )
+        }
+        
+        return gaps
+    }
+    
+    private fun suggestImprovements(
+        failurePatterns: List<CrossSessionFailurePattern>,
+        skillCombinations: List<CrossSessionSkillCombination>,
+    ): List<String> {
+        val improvements = mutableListOf<String>()
+        
+        if (failurePatterns.isNotEmpty()) {
+            val topFailure = failurePatterns.first()
+            improvements.add("Focus on improving reliability of '${topFailure.toolName}' - failed ${topFailure.occurrenceCount} times")
+        }
+        
+        if (skillCombinations.isNotEmpty()) {
+            improvements.add("Consider automating the '${skillCombinations.first().skill1}' → '${skillCombinations.first().skill2}' workflow")
+        }
+        
+        val highFailureRateSessions = sessionReflexions.count { 
+            it.outcome == SessionOutcome.PARTIAL_FAILURE || it.outcome == SessionOutcome.COMPLETE_FAILURE 
+        }
+        if (highFailureRateSessions > sessionReflexions.size / 3) {
+            improvements.add("High failure rate detected. Consider adding more pre-execution validation")
+        }
+        
+        return improvements.take(3)
+    }
+    
+    private fun buildSessionLesson(
+        toolSequence: List<ToolReflexion>,
+        outcome: SessionOutcome,
+        userGoal: String,
+    ): String {
+        return when (outcome) {
+            SessionOutcome.SUCCESS -> {
+                val tools = toolSequence.joinToString(" → ") { it.toolName }
+                "Successfully completed: $tools"
+            }
+            SessionOutcome.SUCCESS_WITH_DIFFICULTY -> {
+                val failedTool = toolSequence.find { !it.success }?.toolName ?: "unknown"
+                "Completed with difficulty. Failed at: $failedTool. Consider retry strategy."
+            }
+            SessionOutcome.PARTIAL_FAILURE -> {
+                val failedCount = toolSequence.count { !it.success }
+                "Partial failure: $failedCount/${toolSequence.size} steps failed. Review sequence."
+            }
+            SessionOutcome.COMPLETE_FAILURE -> {
+                val firstFailure = toolSequence.firstOrNull { !it.success }
+                "Complete failure at: ${firstFailure?.toolName}. Root cause: ${firstFailure?.deepAnalysis?.rootCause ?: "unknown"}"
+            }
+        }
+    }
+    
+    private fun buildAlternativeStrategy(
+        toolSequence: List<ToolReflexion>,
+        outcome: SessionOutcome,
+    ): String? {
+        val failurePoint = toolSequence.indexOfFirst { !it.success }
+        if (failurePoint < 0) return null
+        
+        val failedTool = toolSequence[failurePoint]
+        val alternatives = failedTool.deepAnalysis?.alternativeApproach
+        
+        return when {
+            alternatives != null -> "Alternative: $alternatives"
+            failurePoint > 0 -> "Try executing ${toolSequence[failurePoint - 1].toolName} again before ${failedTool.toolName}"
+            else -> "Consider skipping ${failedTool.toolName} and trying alternative approach"
+        }
+    }
+    
+    private fun extractSessionTags(
+        toolSequence: List<ToolReflexion>,
+        outcome: SessionOutcome,
+    ): List<String> {
+        val tags = mutableListOf<String>()
+        
+        val tools = toolSequence.map { it.toolName }
+        if (tools.any { it.contains("search", ignoreCase = true) }) tags.add("research")
+        if (tools.any { it.contains("email", ignoreCase = true) }) tags.add("communication")
+        if (tools.any { it.contains("file", ignoreCase = true) }) tags.add("file_operations")
+        if (tools.any { it.contains("schedule", ignoreCase = true) }) tags.add("scheduling")
+        
+        when (outcome) {
+            SessionOutcome.SUCCESS -> tags.add("successful")
+            SessionOutcome.SUCCESS_WITH_DIFFICULTY -> tags.add("recovered")
+            SessionOutcome.PARTIAL_FAILURE -> tags.add("partial")
+            SessionOutcome.COMPLETE_FAILURE -> tags.add("failed")
+        }
+        
+        return tags
+    }
+    
+    private fun buildSuggestedFix(toolName: String, rootCause: String): String {
+        return when {
+            rootCause.contains("timeout", ignoreCase = true) -> 
+                "Add retry with exponential backoff for $toolName"
+            rootCause.contains("permission", ignoreCase = true) -> 
+                "Check and grant required permissions before $toolName"
+            rootCause.contains("not found", ignoreCase = true) -> 
+                "Add existence check before executing $toolName"
+            else -> "Review input parameters for $toolName"
+        }
+    }
+    
     private fun performBasicValidation(
         toolName: String,
         args: Map<String, String>,
@@ -126,16 +439,13 @@ class ReflexionEngine(
         success: Boolean,
     ): BasicValidation {
         val issues = mutableListOf<String>()
-        var expectedPattern: String? = null
-        var actualPattern: String? = null
         
-        when {
-            result.contains("error", ignoreCase = true) && success -> {
-                issues.add("Result contains 'error' but marked as success")
-            }
-            result.contains("failed", ignoreCase = true) && success -> {
-                issues.add("Result contains 'failed' but marked as success")
-            }
+        if (result.contains("error", ignoreCase = true) && success) {
+            issues.add("Result contains 'error' but marked as success")
+        }
+        
+        if (result.contains("failed", ignoreCase = true) && success) {
+            issues.add("Result contains 'failed' but marked as success")
         }
         
         val resultLower = result.lowercase()
@@ -163,8 +473,8 @@ class ReflexionEngine(
         
         return BasicValidation(
             isValid = issues.isEmpty(),
-            expectedPattern = expectedPattern,
-            actualPattern = actualPattern,
+            expectedPattern = null,
+            actualPattern = null,
             issues = issues,
         )
     }
@@ -321,12 +631,23 @@ class ReflexionEngine(
         }
     }
     
+    private fun addSessionReflexion(reflexion: SessionReflexion) {
+        sessionReflexions.add(reflexion)
+        if (sessionReflexions.size > MAX_SESSION_HISTORY) {
+            sessionReflexions.removeAt(0)
+        }
+    }
+    
     fun getRecentReflexions(count: Int = 10): List<ToolReflexion> {
         return reflexionHistory.takeLast(count)
     }
     
     fun getFailureReflexions(): List<ToolReflexion> {
         return reflexionHistory.filter { !it.success }
+    }
+    
+    fun getSessionReflexions(): List<SessionReflexion> {
+        return sessionReflexions.toList()
     }
     
     suspend fun storeLearningPoint(toolName: String, lesson: String, type: InsightType) {

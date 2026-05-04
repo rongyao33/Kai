@@ -75,6 +75,14 @@ interface DataRepository {
     fun setSoulText(text: String)
     suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE, userMessage: String? = null): String?
 
+    // User Profile
+    fun getUserProfile(): UserProfile
+    fun setUserProfile(profile: UserProfile)
+
+    // Private Vault
+    fun getPrivateVault(): PrivateVault
+    fun setPrivateVault(vault: PrivateVault)
+
     // Memory management
     fun isMemoryEnabled(): Boolean
     fun setMemoryEnabled(enabled: Boolean)

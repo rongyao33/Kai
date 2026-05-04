@@ -3,6 +3,7 @@ package com.inspiredandroid.kai.ui.chat.composables
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
+import com.inspiredandroid.kai.data.FileOutput
 import com.inspiredandroid.kai.getBackgroundDispatcher
 import com.inspiredandroid.kai.ui.dynamicui.FrozenSubmission
 import com.inspiredandroid.kai.ui.dynamicui.toSpeakableText
@@ -60,6 +62,8 @@ internal fun BotMessage(
     onUiCallback: ((event: String, data: Map<String, String>) -> Unit)? = null,
     frozen: FrozenSubmission? = null,
     onResubmit: ((event: String, data: Map<String, String>) -> Unit)? = null,
+    fileAttachments: List<FileOutput> = emptyList(),
+    onSaveFile: ((FileOutput) -> Unit)? = null,
 ) {
     val document = remember(message) { parseMarkdown(message) }
     var isEditing by remember(frozen) { mutableStateOf(false) }
@@ -74,36 +78,45 @@ internal fun BotMessage(
         onUiCallback ?: { _, _ -> }
     }
 
-    Box(modifier = Modifier.fillMaxWidth()) {
-        SelectionContainer {
-            MarkdownContent(
-                document = document,
-                isInteractive = effectiveInteractive,
-                onUiCallback = kaiUiCallback,
-                frozen = effectiveFrozen,
-                modifier = Modifier.fillMaxWidth()
-                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
-            )
-        }
-        if (frozen != null && onResubmit != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .handCursor()
-                    .clickable { isEditing = !isEditing },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,
-                    contentDescription = if (isEditing) "Cancel edit" else "Edit submission",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            SelectionContainer {
+                MarkdownContent(
+                    document = document,
+                    isInteractive = effectiveInteractive,
+                    onUiCallback = kaiUiCallback,
+                    frozen = effectiveFrozen,
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
                 )
             }
+            if (frozen != null && onResubmit != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .handCursor()
+                        .clickable { isEditing = !isEditing },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,
+                        contentDescription = if (isEditing) "Cancel edit" else "Edit submission",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        if (fileAttachments.isNotEmpty() && onSaveFile != null) {
+            FileOutputMessage(
+                files = fileAttachments,
+                onSave = onSaveFile,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
         }
     }
     Row(Modifier.padding(horizontal = 8.dp)) {

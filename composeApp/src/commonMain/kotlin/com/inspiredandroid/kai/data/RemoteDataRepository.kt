@@ -771,9 +771,15 @@ class RemoteDataRepository(
                 if (index > 0) {
                     fallbackServiceName = entry.service.displayName
                 }
+                val fileAttachments = parseFileOutputs(responseText)
+                val cleanedText = if (fileAttachments.isNotEmpty()) {
+                    responseText.replace(Regex("""\[FILE:[^\]]+\]\s*\n?(.*?)\s*\[/FILE\]""", RegexOption.DOT_MATCHES_ALL), "").trim()
+                } else {
+                    responseText
+                }
                 chatHistory.update {
                     it.toMutableList().apply {
-                        add(History(role = History.Role.ASSISTANT, content = responseText, fallbackServiceName = fallbackServiceName))
+                        add(History(role = History.Role.ASSISTANT, content = cleanedText, fallbackServiceName = fallbackServiceName, fileAttachments = fileAttachments.toImmutableList()))
                     }
                 }
                 saveCurrentConversation()
@@ -1664,6 +1670,44 @@ class RemoteDataRepository(
 
     override fun setSoulText(text: String) {
         appSettings.setSoulText(text)
+    }
+
+    // User Profile
+    override fun getUserProfile(): UserProfile {
+        val jsonStr = appSettings.getUserProfileJson()
+        return if (jsonStr.isNotBlank()) {
+            try {
+                SharedJson.decodeFromString<UserProfile>(jsonStr)
+            } catch (e: Exception) {
+                UserProfile()
+            }
+        } else {
+            UserProfile()
+        }
+    }
+
+    override fun setUserProfile(profile: UserProfile) {
+        val encoded = SharedJson.encodeToString(profile)
+        appSettings.setUserProfileJson(encoded)
+    }
+
+    // Private Vault
+    override fun getPrivateVault(): PrivateVault {
+        val jsonStr = appSettings.getPrivateVaultJson()
+        return if (jsonStr.isNotBlank()) {
+            try {
+                SharedJson.decodeFromString<PrivateVault>(jsonStr)
+            } catch (e: Exception) {
+                PrivateVault()
+            }
+        } else {
+            PrivateVault()
+        }
+    }
+
+    override fun setPrivateVault(vault: PrivateVault) {
+        val encoded = SharedJson.encodeToString(vault)
+        appSettings.setPrivateVaultJson(encoded)
     }
 
     override suspend fun getActiveSystemPrompt(variant: SystemPromptVariant, userMessage: String?): String? {
