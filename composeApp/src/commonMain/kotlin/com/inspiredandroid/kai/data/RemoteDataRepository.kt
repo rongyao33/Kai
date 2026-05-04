@@ -1248,7 +1248,8 @@ class RemoteDataRepository(
             toolCalls.map { (callId, name, arguments) ->
                 async {
                     val result = toolExecutor.executeTool(name, arguments, conversationIdSnapshot)
-                    metaLearningEngine.recordToolExecution(name, arguments, result)
+                    val success = !result.lowercase().contains("error") && !result.lowercase().contains("failed")
+                    metaLearningEngine.recordToolExecutionWithReflexion(name, arguments, result, success)
                     Triple(callId, name, result)
                 }
             }.awaitAll()

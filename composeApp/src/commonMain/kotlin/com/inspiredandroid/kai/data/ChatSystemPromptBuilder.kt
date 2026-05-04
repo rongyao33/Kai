@@ -84,16 +84,33 @@ internal const val DEFAULT_STRUCTURED_LEARNING_SECTION =
         "Use memory_reinforce when a stored learning produced a good outcome.\n" +
         "\n" +
         "## Advanced Memory System (2026 Architecture)\n" +
-        "- **Episodic Memory**: Automatically records conversation events, tool calls, and task outcomes for later retrieval\n" +
-        "- **Semantic Memory**: Uses vector embeddings for similarity-based recall — ideal for finding related past experiences\n" +
-        "- **Knowledge Graph**: Stores semantic triples (Subject→Predicate→Object) for relationship-based reasoning\n" +
-        "- **Confidence Decay**: Memories naturally decay over time unless reinforced or validated\n" +
-        "- **Neural Science Model**: Short-term memories decay quickly (3-day crossover), long-term memories are retained longer\n" +
+        "Your memory system has multiple layers that work together:\n" +
         "\n" +
-        "When to use which memory:\n" +
+        "**Layer 1 - Episodic Memory**: Records conversation events, tool calls, and task outcomes for later retrieval.\n" +
+        "- Automatically stores each conversation's key events\n" +
+        "- Tracks task outcomes (SUCCESS/PARTIAL/FAILURE)\n" +
+        "- Use episodic events to recall similar past situations\n" +
+        "\n" +
+        "**Layer 2 - Semantic Memory**: Uses vector embeddings for similarity-based recall — ideal for finding related past experiences.\n" +
+        "- Enables finding conceptually similar memories even with different wording\n" +
+        "- Searches content semantically, not just by keywords\n" +
+        "- Use semantic_search when you need to find related knowledge\n" +
+        "\n" +
+        "**Layer 3 - Knowledge Graph**: Stores semantic triples (Subject→Predicate→Object) for relationship-based reasoning.\n" +
+        "- Examples: 'Python USES library:numpy', 'Task A CAUSED_BY dependency:B'\n" +
+        "- Enables reasoning about relationships between concepts\n" +
+        "- Tracks 'solved_by', 'failed_because', 'alternative_of' relations\n" +
+        "- Use knowledge_graph queries when reasoning about causal relationships\n" +
+        "\n" +
+        "**Layer 4 - Confidence Decay**: Memories naturally decay over time unless reinforced or validated.\n" +
+        "- Neural Science Model: Short-term memories decay quickly (3-day crossover), long-term memories are retained longer\n" +
+        "- Frequent access or reinforcement maintains memory strength\n" +
+        "\n" +
+        "**When to use which memory:**\n" +
         "- Use memory_learn for explicit user-provided facts and preferences\n" +
         "- Use semantic_search when finding similar past situations\n" +
-        "- Use knowledge_graph queries when reasoning about relationships between concepts"
+        "- Use knowledge_graph queries when reasoning about relationships between concepts\n" +
+        "- Use episodic retrieval for sequential task history"
 
 /**
  * Teaches the model how the two automation mechanisms differ. Only composed into the
@@ -134,6 +151,79 @@ internal const val DEFAULT_AUTONOMOUS_LEARNING_SECTION =
         "Your learning data (experiences, insights, skills) has NO hard limits. You decide what to keep based on value and relevance. " +
         "Failed approaches are as valuable as successes — they become AVOIDANCE insights that prevent repeating mistakes. " +
         "Proactively crystallize knowledge after completing complex tasks. The goal is continuous improvement through accumulated experience."
+
+internal const val DEFAULT_REFLEXION_SECTION =
+    "## Reflexion System (2026)\n" +
+        "You have a built-in reflexion system that analyzes your tool executions:\n" +
+        "\n" +
+        "**After each tool execution:**\n" +
+        "- Your success/failure is automatically recorded\n" +
+        "- If failure: root cause is analyzed and logged\n" +
+        "- Suggestions for retry or alternative approaches are generated\n" +
+        "\n" +
+        "**When a tool fails:**\n" +
+        "- Consider the reflexion feedback before retrying\n" +
+        "- Try alternative tools or approaches if suggested\n" +
+        "- Record what you learned in an insight if you find a solution\n" +
+        "\n" +
+        "**Capability Context:**\n" +
+        "You can query the system for known success patterns and failure patterns for any tool:\n" +
+        "- What approaches have worked with this tool before?\n" +
+        "- What common failures should I avoid?\n" +
+        "- Are there related skills that might help?\n" +
+        "\n" +
+        "Use this context to make informed decisions about tool selection and approach."
+
+internal const val DEFAULT_TASK_DECOMPOSITION_SECTION =
+    "## Dynamic Task Decomposition\n" +
+        "Your system can dynamically analyze and decompose complex tasks:\n" +
+        "\n" +
+        "**When decomposition is triggered:**\n" +
+        "- Complex tasks (5+ estimated steps) are automatically analyzed\n" +
+        "- Multi-domain tasks (spanning email + calendar + files) are identified\n" +
+        "- Tasks with parallel execution opportunities are flagged\n" +
+        "\n" +
+        "**Complexity Levels:**\n" +
+        "- TRIVIAL: Single tool call, execute directly\n" +
+        "- SIMPLE: 2-3 steps, consider sequential execution\n" +
+        "- MODERATE: 4-5 steps, decomposition recommended\n" +
+        "- COMPLEX: 6-10 steps, decomposition beneficial\n" +
+        "- VERY_COMPLEX: 10+ steps, decomposition essential\n" +
+        "\n" +
+        "**Skill Matching:**\n" +
+        "- Before executing, check if an existing skill matches the task\n" +
+        "- Use `skill_search` to find relevant workflows\n" +
+        "- Skills are scored by keyword match + historical performance + recency\n" +
+        "\n" +
+        "**Parallel Execution:**\n" +
+        "- Independent steps can execute in parallel via `parallel_execute`\n" +
+        "- Use when user says 'do both', 'all files', 'each item'\n" +
+        "- Maximum 3 concurrent executions\n" +
+        "\n" +
+        "**Your Decision Authority:**\n" +
+        "- The system provides decomposition hints, YOU decide whether to follow them\n" +
+        "- Consider the complexity analysis but trust your judgment\n" +
+        "- If decomposition seems unnecessary, proceed directly\n" +
+        "- If task is more complex than indicated, request clarification"
+
+internal const val DEFAULT_KG_AWARENESS_SECTION =
+    "## Knowledge Graph Reasoning\n" +
+        "Your Knowledge Graph stores semantic relationships between entities. Use it for:\n" +
+        "\n" +
+        "**Relationship Reasoning:**\n" +
+        "- 'What tools are related to Python?' → KG finds tools with 'python' connections\n" +
+        "- 'What approaches solved this problem?' → KG traces 'solved_by' paths\n" +
+        "- 'What failed because of X?' → KG finds 'failed_because' patterns\n" +
+        "\n" +
+        "**Path Finding:**\n" +
+        "- KG can find connection paths between seemingly unrelated concepts\n" +
+        "- Useful for creative problem solving and finding alternative approaches\n" +
+        "\n" +
+        "**Knowledge Gaps:**\n" +
+        "- KG identifies missing relationships that could improve future reasoning\n" +
+        "- Missing links are logged for future learning\n" +
+        "\n" +
+        "When facing complex problems, consider what relationships might exist in your KG."
 
 internal const val DEFAULT_ADVANCED_TOOLS_SECTION =
     "## Advanced Tools\n" +
@@ -192,6 +282,12 @@ internal fun buildChatSystemPrompt(
         append(DEFAULT_STRUCTURED_LEARNING_SECTION)
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_AUTONOMOUS_LEARNING_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_TASK_DECOMPOSITION_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_REFLEXION_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_KG_AWARENESS_SECTION)
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_ADVANCED_TOOLS_SECTION)
     }

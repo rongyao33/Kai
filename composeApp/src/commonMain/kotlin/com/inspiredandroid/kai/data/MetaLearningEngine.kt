@@ -45,6 +45,28 @@ class MetaLearningEngine(
 
     private val _pendingCrystallization = MutableStateFlow<List<CrystallizationSuggestion>>(emptyList())
     val pendingCrystallization: StateFlow<List<CrystallizationSuggestion>> = _pendingCrystallization
+    
+    val reflexionEngine: ReflexionEngine = ReflexionEngine(
+        insightIndex = insightIndex,
+        memoryStore = memoryStore,
+        knowledgeGraph = knowledgeGraph,
+        skillStore = skillStore,
+    )
+    
+    val enhancedKnowledgeGraph: EnhancedKnowledgeGraph = EnhancedKnowledgeGraph(
+        knowledgeGraph = knowledgeGraph!!,
+        semanticMemory = semanticMemory,
+        insightIndex = insightIndex,
+        skillStore = skillStore,
+    )
+    
+    val taskDecomposer: TaskDecomposer = TaskDecomposer(
+        skillStore = skillStore,
+        experienceStore = experienceStore,
+        insightIndex = insightIndex,
+        reflexionEngine = reflexionEngine,
+        enhancedKnowledgeGraph = enhancedKnowledgeGraph,
+    )
 
     fun cleanup() {
         scope.cancel()
@@ -371,6 +393,53 @@ class MetaLearningEngine(
             words.any { skillText.contains(it) }
         }.take(3)
     }
+    
+    suspend fun getKGEnhancedContext(userMessage: String): KGContext {
+        return enhancedKnowledgeGraph.retrieveContextForTask(userMessage)
+    }
+    
+    suspend fun getCapabilityContext(toolName: String): CapabilityContext {
+        return enhancedKnowledgeGraph.getCapabilityContext(toolName)
+    }
+    
+    suspend fun getEnhancedRetrieval(query: String, topK: Int = 10): List<KGSearchResult> {
+        return enhancedKnowledgeGraph.kgEnhancedRetrieval(query, topK = topK)
+    }
+    
+    fun recordToolExecutionWithReflexion(
+        toolName: String,
+        argsSummary: String,
+        resultSummary: String,
+        success: Boolean,
+    ): ReflexionResult {
+        _currentSessionTools.value = _currentSessionTools.value + ToolExecutionRecord(
+            toolName = toolName,
+            argsSummary = argsSummary,
+            resultSummary = resultSummary,
+            success = success,
+        )
+        
+        return reflexionEngine.reflectOnToolExecution(toolName, argsSummary, resultSummary, success)
+    }
+    
+    suspend fun reflexionOnExecution(
+        toolName: String,
+        result: String,
+        success: Boolean,
+    ): ReflexionResult {
+        val reflection = reflexionEngine.reflectOnToolExecution(
+            toolName = toolName,
+            argsSummary = "",
+            resultSummary = result,
+            success = success,
+        )
+        
+        if (!success && reflection.learningPoint != null) {
+            reflexionEngine.storeAvoidanceInsight(toolName, reflection.learningPoint)
+        }
+        
+        return reflection
+    }
 
     suspend fun getSemanticMemoriesForContext(
         userMessage: String,
@@ -507,6 +576,40 @@ class MetaLearningEngine(
         return "Completed ${tools.size} tool calls with ${"%.0f".format(successRate * 100)}% success rate. " +
             "Confidence: ${"%.0f".format(confidence * 100)}%. " +
             "This ${outcome.name.lowercase()} pattern is worth preserving for future reuse."
+    }
+
+    suspend fun analyzeTaskForDecomposition(
+        userMessage: String,
+        availableTools: List<String>,
+    ): DecompositionSuggestion {
+        val recentFailures = reflexionEngine.getFailureReflexions()
+            .take(5)
+            .map { it.toolName }
+        
+        return taskDecomposer.analyzeTask(
+            userMessage = userMessage,
+            availableTools = availableTools,
+            recentFailures = recentFailures,
+        )
+    }
+    
+    suspend fun getTaskDecompositionHints(
+        task: String,
+    ): String {
+        val kgContext = try {
+            enhancedKnowledgeGraph.retrieveContextForTask(task)
+        } catch (e: Exception) {
+            null
+        }
+        
+        return taskDecomposer.getDecompositionHints(task, kgContext)
+    }
+    
+    suspend fun shouldUseSkillForTask(
+        task: String,
+        skill: SkillEntry,
+    ): SkillMatchResult {
+        return taskDecomposer.shouldUseSkill(task, skill)
     }
 
     suspend fun intelligentCleanup(): CleanupReport {
