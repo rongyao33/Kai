@@ -13,6 +13,8 @@ import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_deep_research_description
 import kai.composeapp.generated.resources.tool_deep_research_name
@@ -54,6 +56,8 @@ private data class ResearchReport(
 
 object DeepResearchTool : Tool {
     private val json = Json { ignoreUnknownKeys = true }
+
+    override val timeout: Duration = 180.seconds
 
     private val researchClient = httpClient {
         install(ContentNegotiation) {

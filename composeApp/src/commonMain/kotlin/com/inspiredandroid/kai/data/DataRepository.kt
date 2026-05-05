@@ -124,6 +124,12 @@ interface DataRepository {
     fun isDaemonEnabled(): Boolean
     fun setDaemonEnabled(enabled: Boolean)
 
+    // Knowledge Base
+    fun isKnowledgeBaseEnabled(): Boolean
+    fun setKnowledgeBaseEnabled(enabled: Boolean)
+    fun isKnowledgeBaseWatchEnabled(): Boolean
+    fun setKnowledgeBaseWatchEnabled(enabled: Boolean)
+
     // Linux Sandbox
     fun isSandboxEnabled(): Boolean
     fun setSandboxEnabled(enabled: Boolean)

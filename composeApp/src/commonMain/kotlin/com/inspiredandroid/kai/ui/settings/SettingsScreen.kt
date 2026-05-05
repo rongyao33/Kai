@@ -1852,6 +1852,14 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             onToggleScheduling = actions.onToggleScheduling,
                         )
                     }
+                    SettingsCard {
+                        KnowledgeBaseSection(
+                            isKnowledgeBaseEnabled = uiState.isKnowledgeBaseEnabled,
+                            isKnowledgeBaseWatchEnabled = uiState.isKnowledgeBaseWatchEnabled,
+                            onToggleKnowledgeBase = actions.onToggleKnowledgeBase,
+                            onToggleKnowledgeBaseWatch = actions.onToggleKnowledgeBaseWatch,
+                        )
+                    }
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1934,6 +1942,14 @@ private fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         onCancelTask = actions.onCancelTask,
                         isSchedulingEnabled = uiState.isSchedulingEnabled,
                         onToggleScheduling = actions.onToggleScheduling,
+                    )
+                }
+                SettingsCard {
+                    KnowledgeBaseSection(
+                        isKnowledgeBaseEnabled = uiState.isKnowledgeBaseEnabled,
+                        isKnowledgeBaseWatchEnabled = uiState.isKnowledgeBaseWatchEnabled,
+                        onToggleKnowledgeBase = actions.onToggleKnowledgeBase,
+                        onToggleKnowledgeBaseWatch = actions.onToggleKnowledgeBaseWatch,
                     )
                 }
                 SettingsCard {

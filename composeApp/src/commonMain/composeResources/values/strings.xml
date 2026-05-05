@@ -259,6 +259,10 @@
     <string name="tab_settings">Settings</string>
     <string name="fallback_answered_by">Answered by %1$s (fallback)</string>
     <string name="fallback_service_failed">%1$s: %2$s</string>
+    <string name="settings_knowledge_base">Knowledge Base</string>
+    <string name="settings_knowledge_base_description">Index and search local documents (PDF, DOCX, TXT, images) for AI to use as context.</string>
+    <string name="settings_knowledge_base_watch">Auto-index file changes</string>
+    <string name="settings_knowledge_base_watch_description">Automatically index new or modified documents in watched directories.</string>
     <string name="settings_soul">Soul</string>
     <string name="settings_soul_description">Define how the AI behaves with a system prompt. The AI will also have access to its stored memories.</string>
     <string name="settings_soul_save">Save</string>

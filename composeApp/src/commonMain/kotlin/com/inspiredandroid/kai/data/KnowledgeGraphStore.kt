@@ -385,10 +385,10 @@ class KnowledgeGraphStore(private val appSettings: AppSettings) {
         val edges = loadEdges()
         val before = nodes.size + edges.size
 
-        val orphanedEdgeIds = edges.map { it.id }.filter { edgeId ->
-            val edge = edges.find { it.id == edgeId }!!
-            !nodes.any { it.id == edge.sourceId || it.id == edge.targetId }
-        }.toSet()
+        val nodeIds = nodes.map { it.id }.toSet()
+        val orphanedEdgeIds = edges.filter { edge ->
+            edge.sourceId !in nodeIds && edge.targetId !in nodeIds
+        }.map { it.id }.toSet()
 
         val updatedEdges = edges.filter { it.id !in orphanedEdgeIds }
         saveEdges(updatedEdges)

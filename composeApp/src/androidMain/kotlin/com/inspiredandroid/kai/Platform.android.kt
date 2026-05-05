@@ -16,6 +16,10 @@ import com.inspiredandroid.kai.data.ConversationStorage
 import com.inspiredandroid.kai.data.EmailStore
 import com.inspiredandroid.kai.data.ExperienceStore
 import com.inspiredandroid.kai.data.InsightIndex
+import com.inspiredandroid.kai.data.DocumentIndexer
+import com.inspiredandroid.kai.data.DocumentParser
+import com.inspiredandroid.kai.data.FileScanner
+import com.inspiredandroid.kai.data.KnowledgeBaseStore
 import com.inspiredandroid.kai.data.MemoryStore
 import com.inspiredandroid.kai.data.MetaLearningEngine
 import com.inspiredandroid.kai.data.NotificationStore
@@ -36,12 +40,14 @@ import com.inspiredandroid.kai.sms.declaresReadSms
 import com.inspiredandroid.kai.tools.CalendarPermissionController
 import com.inspiredandroid.kai.tools.CalendarRepository
 import com.inspiredandroid.kai.tools.CalendarResult
+import com.inspiredandroid.kai.tools.CalendarTools
 import com.inspiredandroid.kai.tools.CommonTools
 import com.inspiredandroid.kai.tools.DeepResearchTool
 import com.inspiredandroid.kai.tools.EmailTools
 import com.inspiredandroid.kai.tools.FetchUrlTool
 import com.inspiredandroid.kai.tools.GitCliTool
 import com.inspiredandroid.kai.tools.HeartbeatTools
+import com.inspiredandroid.kai.tools.KnowledgeBaseTools
 import com.inspiredandroid.kai.tools.MemorySearchTools
 import com.inspiredandroid.kai.tools.MetaLearningTools
 import com.inspiredandroid.kai.tools.NotificationHelper
@@ -289,6 +295,8 @@ actual fun getAvailableTools(): List<Tool> {
     val calendarRepository = CalendarRepository(context, calendarPermissionController)
     val emailStore: EmailStore by inject(EmailStore::class.java)
     val conversationStorage: ConversationStorage by inject(ConversationStorage::class.java)
+    val knowledgeBaseStore = KnowledgeBaseStore(appSettings)
+    val documentIndexer = DocumentIndexer(DocumentParser(), FileScanner(context), knowledgeBaseStore)
 
     return buildList {
         addAll(CommonTools.getMemoryTools(memoryStore))
@@ -301,6 +309,10 @@ actual fun getAvailableTools(): List<Tool> {
         if (appSettings.isSchedulingEnabled()) {
             addAll(SchedulingTools.getSchedulingTools(taskStore))
             addAll(HeartbeatTools.getHeartbeatTools(memoryStore, appSettings))
+        }
+        addAll(CalendarTools.getCalendarTools(calendarRepository))
+        if (appSettings.isKnowledgeBaseEnabled()) {
+            addAll(KnowledgeBaseTools.getTools(knowledgeBaseStore, documentIndexer))
         }
         if (appSettings.isToolEnabled(CommonTools.localTimeTool.schema.name)) {
             add(CommonTools.localTimeTool)

@@ -168,15 +168,24 @@ class LinuxSandboxManager(
 
         val executor = createProotExecutor()
         var updated = false
-        for (mirror in downloader.mirrors) {
-            downloader.writeRepositories(rootfsDir, mirror)
-            val result = executor.execute("apk update", timeoutSeconds = 60)
+        val bestMirror = downloader.selectBestMirror()
+        downloader.writeRepositories(rootfsDir, bestMirror)
+        var lastError = ""
+        for (attempt in 1..3) {
+            if (attempt > 1) {
+                val delayMs = attempt * 2000L
+                _state.value = SandboxState.Installing("Retrying apk update (attempt $attempt/3)...")
+                kotlinx.coroutines.delay(delayMs)
+            }
+            val result = executor.execute("apk update", timeoutSeconds = 120)
             if (result["success"] as? Boolean == true) {
                 updated = true
                 break
             }
+            lastError = result["stderr"] as? String ?: result["error"] as? String ?: "Unknown error"
         }
         if (!updated) {
+            android.util.Log.e("LinuxSandbox", "apk update failed after 3 attempts. Last error: $lastError")
             throw IllegalStateException("apk update failed on all Alpine mirrors")
         }
 

@@ -120,6 +120,8 @@ data class SettingsUiState(
     val skills: ImmutableList<SkillEntry> = persistentListOf(),
     val experiences: ImmutableList<ExperienceEntry> = persistentListOf(),
     val insights: ImmutableList<InsightEntry> = persistentListOf(),
+    val isKnowledgeBaseEnabled: Boolean = true,
+    val isKnowledgeBaseWatchEnabled: Boolean = false,
 )
 
 @Immutable

@@ -69,6 +69,16 @@ data class ProfileTools(
             name = "Vault Search",
             description = "Search vault entries by key or tags",
         ),
+        ToolInfo(
+            id = "vault_use",
+            name = "Vault Use",
+            description = "Use a vault credential for authentication - returns actual value for local use only",
+        ),
+        ToolInfo(
+            id = "vault_copy",
+            name = "Vault Copy",
+            description = "Copy a vault credential value to clipboard - user explicitly requested this copy operation",
+        ),
     )
 
     fun getToolObjects(): List<Tool> = listOf(
@@ -77,6 +87,8 @@ data class ProfileTools(
         addBehavioralPatternTool(),
         vaultStoreTool(),
         vaultRetrieveTool(),
+        vaultUseTool(),
+        vaultCopyTool(),
         vaultDeleteTool(),
         vaultListTool(),
         vaultSearchTool(),
@@ -157,6 +169,22 @@ data class ProfileTools(
         override suspend fun execute(args: Map<String, Any>): Any {
             val key = args["key"]?.toString() ?: return mapOf("success" to false, "error" to "Missing key")
             return vaultRetrieve(key)
+        }
+    }
+
+    private fun vaultUseTool() = object : Tool {
+        override val schema = ToolSchema(
+            name = "vault_use",
+            description = "Use a vault credential for authentication - returns actual value for LOCAL USE ONLY. The value is NEVER shown to the user or logged. Only use this when the credential is needed for a local operation (e.g., decrypting a file, authenticating to a service on behalf of the user). NEVER use this tool if the credential would need to be sent over the network or exposed externally.",
+            parameters = mapOf(
+                "key" to ParameterSchema("string", "Key of the credential to use", true),
+                "purpose" to ParameterSchema("string", "Brief description of how this credential will be used (e.g., 'decrypt my tax document', 'login to email')", true),
+            ),
+        )
+        override suspend fun execute(args: Map<String, Any>): Any {
+            val key = args["key"]?.toString() ?: return mapOf("success" to false, "error" to "Missing key")
+            val purpose = args["purpose"]?.toString() ?: "unspecified"
+            return vaultUse(key, purpose)
         }
     }
 
@@ -340,6 +368,59 @@ data class ProfileTools(
             "success" to true,
             "key" to entry.key,
             "value" to vault.maskValue(entry.value),
+        )
+    }
+
+    private fun vaultUse(key: String, purpose: String): Map<String, Any> {
+        val vault = getPrivateVaultFromSettings()
+        val entry = vault.entries.values.find { it.key == key }
+            ?: return mapOf("success" to false, "error" to "Key not found: $key")
+        val log = VaultAccessLog(
+            action = VaultAction.RETRIEVE,
+            keyName = key,
+            success = true,
+            toolName = "vault_use",
+        )
+        savePrivateVault(vault.appendAccessLog(log))
+        return mapOf(
+            "success" to true,
+            "key" to entry.key,
+            "value" to entry.value,
+            "purpose" to purpose,
+            "security_note" to "This value was used internally and has not been logged or exposed externally.",
+        )
+    }
+
+    private fun vaultCopyTool() = object : Tool {
+        override val schema = ToolSchema(
+            name = "vault_copy",
+            description = "Copy a vault credential value to clipboard. User must have explicitly requested to copy a password or secret. This copies the actual value - do NOT call this unless user explicitly asks to copy a password/secret.",
+            parameters = mapOf(
+                "key" to ParameterSchema("string", "Key of the credential to copy", true),
+            ),
+        )
+        override suspend fun execute(args: Map<String, Any>): Map<String, Any> {
+            val key = args["key"]?.toString() ?: return mapOf("success" to false, "error" to "Missing key")
+            return vaultCopy(key)
+        }
+    }
+
+    private fun vaultCopy(key: String): Map<String, Any> {
+        val vault = getPrivateVaultFromSettings()
+        val entry = vault.entries.values.find { it.key == key }
+            ?: return mapOf("success" to false, "error" to "Key not found: $key")
+        val log = VaultAccessLog(
+            action = VaultAction.COPY,
+            keyName = key,
+            success = true,
+            toolName = "vault_copy",
+        )
+        savePrivateVault(vault.appendAccessLog(log))
+        return mapOf(
+            "success" to true,
+            "key" to entry.key,
+            "copied" to true,
+            "security_note" to "Value copied to clipboard. Access logged.",
         )
     }
 

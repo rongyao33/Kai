@@ -83,6 +83,10 @@
     <string name="settings_daemon_mode_description">让 Kai 9000 在后台持续运行，以便即使应用不在前台时计划任务也能执行。</string>
     <string name="settings_scheduled_tasks">计划任务</string>
     <string name="settings_scheduled_tasks_description">AI 安排的未来执行任务。让 AI 提醒您或稍后运行某些操作来创建计划任务。</string>
+    <string name="settings_knowledge_base">知识库</string>
+    <string name="settings_knowledge_base_description">索引并搜索本地文档（PDF、DOCX、TXT、图片）供 AI 作为上下文使用。</string>
+    <string name="settings_knowledge_base_watch">自动索引文件变更</string>
+    <string name="settings_knowledge_base_watch_description">自动索引监控目录中的新增或修改的文档。</string>
     <string name="settings_scheduled_tasks_cancel">取消任务</string>
     <string name="settings_soul_reset">重置</string>
     <string name="settings_soul_reset_confirm">这将把灵魂重置为默认系统提示。您确定吗？</string>

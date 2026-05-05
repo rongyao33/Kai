@@ -587,6 +587,19 @@ class AppSettings(private val settings: Settings) {
         settings.putString(KEY_KG_EDGES, json)
     }
 
+    // Knowledge Base
+    fun getKnowledgeBaseFilesJson(): String = settings.getString(KEY_KB_FILES, "[]")
+
+    fun setKnowledgeBaseFilesJson(json: String) {
+        settings.putString(KEY_KB_FILES, json)
+    }
+
+    fun getKnowledgeBaseChunksJson(): String = settings.getString(KEY_KB_CHUNKS, "[]")
+
+    fun setKnowledgeBaseChunksJson(json: String) {
+        settings.putString(KEY_KB_CHUNKS, json)
+    }
+
     // Scheduling
     fun isSchedulingEnabled(): Boolean = settings.getBoolean(KEY_SCHEDULING_ENABLED, true)
 
@@ -650,6 +663,19 @@ class AppSettings(private val settings: Settings) {
 
     fun setHeartbeatPrompt(text: String) {
         settings.putString(KEY_HEARTBEAT_PROMPT, text)
+    }
+
+    // Knowledge Base
+    fun isKnowledgeBaseEnabled(): Boolean = settings.getBoolean(KEY_KB_ENABLED, true)
+
+    fun setKnowledgeBaseEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_KB_ENABLED, enabled)
+    }
+
+    fun isKnowledgeBaseWatchEnabled(): Boolean = settings.getBoolean(KEY_KB_WATCH_ENABLED, false)
+
+    fun setKnowledgeBaseWatchEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_KB_WATCH_ENABLED, enabled)
     }
 
     // MCP Servers
@@ -1295,6 +1321,10 @@ class AppSettings(private val settings: Settings) {
         const val KEY_SEMANTIC_MEMORY = "semantic_memory"
         const val KEY_KG_NODES = "kg_nodes"
         const val KEY_KG_EDGES = "kg_edges"
+        const val KEY_KB_FILES = "kb_files"
+        const val KEY_KB_CHUNKS = "kb_chunks"
+        const val KEY_KB_ENABLED = "kb_enabled"
+        const val KEY_KB_WATCH_ENABLED = "kb_watch_enabled"
         const val KEY_SCHEDULED_TASKS = "scheduled_tasks"
         const val KEY_SCHEDULING_ENABLED = "scheduling_enabled"
         const val KEY_DYNAMIC_UI_ENABLED = "dynamic_ui_enabled"

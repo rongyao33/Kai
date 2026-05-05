@@ -8,7 +8,11 @@ import com.inspiredandroid.kai.network.tools.ToolSchema
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kai.composeapp.generated.resources.Res
 import kai.composeapp.generated.resources.tool_parallel_execute_description
@@ -54,6 +58,8 @@ data class ToolResult(
 )
 
 object ParallelExecuteTool : Tool {
+    override val timeout: Duration = 300.seconds
+
     override val schema = ToolSchema(
         name = "parallel_execute",
         description = TOOL_DESCRIPTION,
@@ -170,11 +176,21 @@ object ParallelExecuteTool : Tool {
         val startTime = Clock.System.now().toEpochMilliseconds()
 
         return try {
-            val result = tool.execute(call.arguments)
+            val result = withTimeout(tool.timeout) {
+                tool.execute(call.arguments)
+            }
             ToolResult(
                 tool_name = call.tool_name,
                 success = true,
                 result = result,
+                duration_ms = Clock.System.now().toEpochMilliseconds() - startTime,
+            )
+        } catch (e: TimeoutCancellationException) {
+            ToolResult(
+                tool_name = call.tool_name,
+                success = false,
+                result = null,
+                error = "Tool '${call.tool_name}' timed out after ${tool.timeout}",
                 duration_ms = Clock.System.now().toEpochMilliseconds() - startTime,
             )
         } catch (e: Exception) {

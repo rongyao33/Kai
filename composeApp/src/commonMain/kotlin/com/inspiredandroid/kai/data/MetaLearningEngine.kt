@@ -232,7 +232,6 @@ class MetaLearningEngine(
                         SkillCategory.WORKFLOW, SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
                         SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
                         SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
-                        else -> MemoryCategory.GENERAL
                     },
                     keywords = suggestion.suggestedTags,
                     confidence = suggestion.confidence,
@@ -312,7 +311,6 @@ class MetaLearningEngine(
                         SkillCategory.WORKFLOW, SkillCategory.AUTOMATION -> MemoryCategory.LEARNING
                         SkillCategory.REFERENCE -> MemoryCategory.PREFERENCE
                         SkillCategory.TROUBLESHOOTING -> MemoryCategory.ERROR
-                        else -> MemoryCategory.GENERAL
                     },
                     keywords = suggestion.suggestedTags,
                     confidence = suggestion.confidence,

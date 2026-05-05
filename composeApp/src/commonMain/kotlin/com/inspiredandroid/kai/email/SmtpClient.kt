@@ -1,5 +1,6 @@
 package com.inspiredandroid.kai.email
 
+import com.inspiredandroid.kai.util.Logger
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -30,7 +31,7 @@ class SmtpClient(
         writeLine("STARTTLS")
         val response = readResponse()
         if (!response.startsWith("220")) {
-            try { quit() } catch (_: Exception) {}
+            try { quit() } catch (e: Exception) { Logger.w("SmtpClient", "quit failed: ${e.message}") }
             throw Exception("STARTTLS failed: $response")
         }
         connection?.upgradeToTls(host)

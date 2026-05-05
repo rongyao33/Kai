@@ -90,6 +90,7 @@ import com.inspiredandroid.kai.ui.chat.composables.HeartbeatBanner
 import com.inspiredandroid.kai.ui.chat.composables.PendingSmsBanners
 import com.inspiredandroid.kai.ui.chat.composables.QuestionInput
 import com.inspiredandroid.kai.ui.chat.composables.ServiceSelector
+import com.inspiredandroid.kai.ui.chat.composables.ToolExecutionFlow
 import com.inspiredandroid.kai.ui.chat.composables.TopBar
 import com.inspiredandroid.kai.ui.chat.composables.TrailingIcon
 import com.inspiredandroid.kai.ui.chat.composables.UserMessage
@@ -371,7 +372,7 @@ private fun InteractiveModeContent(
         if (uiState.isLoading && lastAssistant == null) {
             // First load — show centered loading
             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                WaitingResponseRow(
+                ToolExecutionFlow(
                     executingTools = remember { kotlinx.collections.immutable.persistentListOf() },
                 )
             }
@@ -702,7 +703,7 @@ private fun ChatModeScreen(
                                         (frozenByAssistantId.values.none { it.isPending } || executingToolsState.tools.isNotEmpty())
                                     if (showWaitingRow) {
                                         item(key = "loading") {
-                                            WaitingResponseRow(
+                                            ToolExecutionFlow(
                                                 executingTools = executingToolsState.tools,
                                                 isStatusOnly = executingToolsState.isStatusOnly,
                                                 statusText = fallbackStatusText,

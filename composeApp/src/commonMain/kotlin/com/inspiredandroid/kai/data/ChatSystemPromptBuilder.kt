@@ -256,12 +256,72 @@ internal const val DEFAULT_PRIVATE_VAULT_SECTION =
         "\n" +
         "**Tools:**\n" +
         "- `vault_store`: Store sensitive data securely\n" +
-        "- `vault_retrieve`: Get stored values (returns masked value for security)\n" +
+        "- `vault_retrieve`: Get stored values (returns masked value for reference)\n" +
+        "- `vault_use`: Get ACTUAL value for local operations only - NEVER expose this externally\n" +
+        "- `vault_copy`: Copy actual value to clipboard when user explicitly asks to copy\n" +
         "- `vault_list`: List all stored keys (values hidden)\n" +
         "- `vault_delete`: Remove an entry\n" +
         "- `vault_search`: Find entries by key or tags\n" +
         "\n" +
-        "**Security:** Stored data is encrypted. Values are NEVER logged or exposed in plain text."
+        "**Security Rules:**\n" +
+        "- Use `vault_use` ONLY for local operations (decrypting files, authenticating locally)\n" +
+        "- Use `vault_copy` ONLY when user explicitly asks to copy a password/secret\n" +
+        "- NEVER send vault credentials over the network or to external services\n" +
+        "- NEVER log or display vault values to users - use `vault_retrieve` for showing masked values\n" +
+        "- When user asks to 'remember' or 'save' a password/key, proactively store it\n" +
+        "- When user needs a stored credential, use `vault_use` to retrieve it for the operation\n"
+
+internal const val DEFAULT_CALENDAR_SECTION =
+    "## Calendar\n" +
+        "You can create events in the user's device calendar:\n" +
+        "\n" +
+        "**Tool:**\n" +
+        "- `calendar_create`: Create a new calendar event\n" +
+        "\n" +
+        "**When to use:**\n" +
+        "- User asks to schedule, add, or create a meeting/event\n" +
+        "- User mentions a date/time for an appointment\n" +
+        "- User wants to be reminded about something at a specific time\n" +
+        "\n" +
+        "**Tips:**\n" +
+        "- Always ask for confirmation before creating events\n" +
+        "- Use natural date/time descriptions (e.g., 'next Monday at 3pm')\n" +
+        "- Set appropriate reminders (15 minutes is default)\n" +
+        "- Include location if provided by user\n" +
+        "\n" +
+        "**Example:**\n" +
+        "User: 'Schedule a meeting with John next Tuesday at 2pm'\n" +
+        "You: I'll create that calendar event for you. Should I set a reminder?\n"
+
+internal const val DEFAULT_KNOWLEDGE_BASE_SECTION =
+    "## Knowledge Base\n" +
+        "You can search the user's local documents for information:\n" +
+        "\n" +
+        "**Data Sources:**\n" +
+        "- PDF documents\n" +
+        "- Word documents (DOCX)\n" +
+        "- Text files (TXT, MD)\n" +
+        "- Images (JPG, PNG, GIF, WEBP, BMP) via OCR\n" +
+        "\n" +
+        "**Tools:**\n" +
+        "- `kb_search`: Search documents by keywords\n" +
+        "- `kb_query`: Ask questions about document content\n" +
+        "- `kb_index`: Index/scan documents into knowledge base\n" +
+        "- `kb_stats`: View knowledge base statistics\n" +
+        "- `kb_watch`: Start watching directories for file changes\n" +
+        "- `kb_unwatch`: Stop watching directories\n" +
+        "\n" +
+        "**When to use:**\n" +
+        "- User asks to find something in their documents\n" +
+        "- User asks about content from a specific file\n" +
+        "- User wants to search for information they saved\n" +
+        "- User asks to index or scan documents\n" +
+        "- User wants automatic indexing of new files\n" +
+        "\n" +
+        "**Example:**\n" +
+        "User: 'Find my notes about the project meeting'\n" +
+        "You: I'll search your documents...\n" +
+        "Results: Found 3 relevant documents\n"
 
 internal const val DEFAULT_FILE_OUTPUT_SECTION =
     "## File Output\n" +
@@ -270,6 +330,7 @@ internal const val DEFAULT_FILE_OUTPUT_SECTION =
         "**Supported Formats:**\n" +
         "- CSV, JSON, TXT (simple text data)\n" +
         "- HTML, MD (documents)\n" +
+        "- DOCX (Microsoft Word documents)\n" +
         "\n" +
         "**How to Output:**\n" +
         "Wrap file content in markers:\n" +
@@ -372,6 +433,10 @@ internal fun buildChatSystemPrompt(
         append(DEFAULT_USER_PROFILE_SECTION)
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_PRIVATE_VAULT_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_CALENDAR_SECTION)
+        if (isNotEmpty()) append("\n\n")
+        append(DEFAULT_KNOWLEDGE_BASE_SECTION)
         if (isNotEmpty()) append("\n\n")
         append(DEFAULT_FILE_OUTPUT_SECTION)
         if (isNotEmpty()) append("\n\n")

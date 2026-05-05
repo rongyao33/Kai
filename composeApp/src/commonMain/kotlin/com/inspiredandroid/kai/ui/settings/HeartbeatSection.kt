@@ -3,6 +3,7 @@
 package com.inspiredandroid.kai.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Switch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -70,6 +72,10 @@ import kai.composeapp.generated.resources.settings_heartbeat_prompt_label
 import kai.composeapp.generated.resources.settings_heartbeat_recent
 import kai.composeapp.generated.resources.settings_heartbeat_refresh
 import kai.composeapp.generated.resources.settings_heartbeat_reset_confirm
+import kai.composeapp.generated.resources.settings_knowledge_base
+import kai.composeapp.generated.resources.settings_knowledge_base_description
+import kai.composeapp.generated.resources.settings_knowledge_base_watch
+import kai.composeapp.generated.resources.settings_knowledge_base_watch_description
 import kai.composeapp.generated.resources.settings_notifications_access_button
 import kai.composeapp.generated.resources.settings_notifications_access_required
 import kai.composeapp.generated.resources.settings_notifications_clear_queue
@@ -830,6 +836,53 @@ private fun formatPollRelative(diffMs: Long): String {
         minutes < 60L -> "${minutes}m ago"
         hours < 24L -> "${hours}h ago"
         else -> "${days}d ago"
+    }
+}
+
+@Composable
+internal fun KnowledgeBaseSection(
+    isKnowledgeBaseEnabled: Boolean,
+    isKnowledgeBaseWatchEnabled: Boolean,
+    onToggleKnowledgeBase: (Boolean) -> Unit,
+    onToggleKnowledgeBaseWatch: (Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        ToggleableHeadline(
+            title = stringResource(Res.string.settings_knowledge_base),
+            description = stringResource(Res.string.settings_knowledge_base_description),
+            checked = isKnowledgeBaseEnabled,
+            onCheckedChange = onToggleKnowledgeBase,
+        )
+
+        if (isKnowledgeBaseEnabled) {
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleKnowledgeBaseWatch(!isKnowledgeBaseWatchEnabled) }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.settings_knowledge_base_watch),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(Res.string.settings_knowledge_base_watch_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isKnowledgeBaseWatchEnabled,
+                    onCheckedChange = onToggleKnowledgeBaseWatch,
+                    modifier = Modifier.handCursor(),
+                )
+            }
+        }
     }
 }
 

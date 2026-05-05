@@ -72,6 +72,8 @@ class SettingsViewModel(
         isOledModeEnabled = dataRepository.isOledModeEnabled(),
         memories = dataRepository.getMemories().toImmutableList(),
         isSchedulingEnabled = dataRepository.isSchedulingEnabled(),
+        isKnowledgeBaseEnabled = dataRepository.isKnowledgeBaseEnabled(),
+        isKnowledgeBaseWatchEnabled = dataRepository.isKnowledgeBaseWatchEnabled(),
         scheduledTasks = dataRepository.getScheduledTasks().toImmutableList(),
         isDaemonEnabled = dataRepository.isDaemonEnabled(),
         showDaemonToggle = currentPlatform is Platform.Mobile.Android,
@@ -180,6 +182,8 @@ class SettingsViewModel(
         onClearAllLearningData = ::onClearAllLearningData,
         onDeleteSkill = ::onDeleteSkill,
         onDeleteInsight = ::onDeleteInsight,
+        onToggleKnowledgeBase = ::onToggleKnowledgeBase,
+        onToggleKnowledgeBaseWatch = ::onToggleKnowledgeBaseWatch,
     )
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -434,6 +438,16 @@ class SettingsViewModel(
     private fun onToggleScheduling(enabled: Boolean) {
         dataRepository.setSchedulingEnabled(enabled)
         _state.update { it.copy(isSchedulingEnabled = enabled) }
+    }
+
+    private fun onToggleKnowledgeBase(enabled: Boolean) {
+        dataRepository.setKnowledgeBaseEnabled(enabled)
+        _state.update { it.copy(isKnowledgeBaseEnabled = enabled) }
+    }
+
+    private fun onToggleKnowledgeBaseWatch(enabled: Boolean) {
+        dataRepository.setKnowledgeBaseWatchEnabled(enabled)
+        _state.update { it.copy(isKnowledgeBaseWatchEnabled = enabled) }
     }
 
     private fun onCancelTask(id: String) {

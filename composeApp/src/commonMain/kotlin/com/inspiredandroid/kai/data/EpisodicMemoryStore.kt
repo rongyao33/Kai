@@ -253,8 +253,8 @@ class EpisodicMemoryStore(private val appSettings: AppSettings) {
         return EventStats(
             totalEvents = events.size,
             byType = events.groupBy { it.eventType }.mapValues { it.value.size },
-            byOutcome = events.filter { it.outcome != null }
-                .groupBy { it.outcome!! }.mapValues { it.value.size },
+            byOutcome = events.mapNotNull { it.outcome }
+                .groupBy { it }.mapValues { it.value.size },
             conversationCount = events.map { it.conversationId }.distinct().size,
         )
     }

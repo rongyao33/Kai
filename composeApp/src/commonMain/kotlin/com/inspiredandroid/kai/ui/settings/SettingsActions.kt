@@ -61,6 +61,8 @@ data class SettingsActions(
     val onClearAllLearningData: () -> Unit,
     val onDeleteSkill: (String) -> Unit,
     val onDeleteInsight: (String) -> Unit,
+    val onToggleKnowledgeBase: (Boolean) -> Unit,
+    val onToggleKnowledgeBaseWatch: (Boolean) -> Unit,
 ) {
     companion object {
         val NoOp = SettingsActions(
@@ -117,6 +119,8 @@ data class SettingsActions(
             onClearAllLearningData = {},
             onDeleteSkill = {},
             onDeleteInsight = {},
+            onToggleKnowledgeBase = {},
+            onToggleKnowledgeBaseWatch = {},
         )
     }
 }

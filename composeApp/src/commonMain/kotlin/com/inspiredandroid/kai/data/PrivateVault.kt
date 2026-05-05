@@ -56,6 +56,7 @@ enum class VaultAction {
     DELETE,
     LIST,
     SEARCH,
+    COPY,
 }
 
 @Immutable

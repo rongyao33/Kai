@@ -2,16 +2,22 @@ package com.inspiredandroid.kai.sandbox
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.prepareGet
+import io.ktor.client.request.head
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.contentLength
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.GZIPInputStream
 
 private const val ALPINE_VERSION = "3.21.3"
@@ -19,13 +25,48 @@ private const val ALPINE_BRANCH = "v3.21"
 private const val BUFFER_SIZE = 8192
 
 private val ALPINE_MIRRORS = listOf(
+    "https://mirrors.tuna.tsinghua.edu.cn/alpine",
+    "https://mirrors.aliyun.com/alpine",
+    "https://mirrors.tencent.com/alpine",
     "https://dl-cdn.alpinelinux.org/alpine",
     "https://mirrors.edge.kernel.org/alpine",
     "https://ftp.halifax.rwth-aachen.de/alpine",
     "https://alpine.ethz.ch/alpine",
     "https://mirror.csclub.uwaterloo.ca/alpine",
-    "https://mirrors.tuna.tsinghua.edu.cn/alpine",
 )
+
+private const val DNS_CHECK_TIMEOUT_MS = 3000L
+private const val MIRROR_CHECK_TIMEOUT_MS = 5000L
+private const val HEALTH_CACHE_DURATION_MS = 5 * 60 * 1000L
+
+private object MirrorHealthCache {
+    private val cache = ConcurrentHashMap<String, MirrorHealth>()
+    private val lastCheck = AtomicLong(0)
+
+    data class MirrorHealth(
+        val latencyMs: Long,
+        val isAvailable: Boolean,
+        val lastChecked: Long,
+    )
+
+    fun isCacheValid(): Boolean {
+        return System.currentTimeMillis() - lastCheck.get() < HEALTH_CACHE_DURATION_MS
+    }
+
+    fun getCachedMirror(): String? {
+        if (!isCacheValid()) return null
+        return cache.filter { it.value.isAvailable }
+            .minByOrNull { it.value.latencyMs }
+            ?.key
+    }
+
+    fun updateCache(healthMap: Map<String, MirrorHealth>) {
+        cache.clear()
+        cache.putAll(healthMap)
+        lastCheck.set(System.currentTimeMillis())
+    }
+}
+
 private const val TAR_BLOCK_SIZE = 512
 private const val TAR_NAME_OFFSET = 0
 private const val TAR_MODE_OFFSET = 100
@@ -226,8 +267,47 @@ class RootfsDownloader(private val httpClient: HttpClient) {
         val etcDir = File(rootfsDir, "etc")
         etcDir.mkdirs()
         File(etcDir, "resolv.conf").writeText(
-            "nameserver 8.8.8.8\nnameserver 8.8.4.4\n",
+            "nameserver 223.5.5.5\n" +
+                "nameserver 119.29.29.29\n" +
+                "nameserver 8.8.8.8\n" +
+                "nameserver 8.8.4.4\n",
         )
+    }
+
+    suspend fun selectBestMirror(): String {
+        MirrorHealthCache.getCachedMirror()?.let { return it }
+        return checkMirrorHealth().minByOrNull { it.second.latencyMs }?.first ?: ALPINE_MIRRORS.first()
+    }
+
+    private suspend fun checkMirrorHealth(): List<Pair<String, MirrorHealthCache.MirrorHealth>> = coroutineScope {
+        ALPINE_MIRRORS.map { mirror ->
+            async {
+                val start = System.currentTimeMillis()
+                val isAvailable = try {
+                    httpClient.head("$mirror/$ALPINE_BRANCH/main/arm64/APKINDEX.tar.gz")
+                        .status.isSuccess()
+                } catch (_: Exception) {
+                    false
+                }
+                val latency = System.currentTimeMillis() - start
+                mirror to MirrorHealthCache.MirrorHealth(
+                    latencyMs = if (isAvailable) latency else Long.MAX_VALUE,
+                    isAvailable = isAvailable,
+                    lastChecked = System.currentTimeMillis(),
+                )
+            }
+        }.awaitAll().also { results ->
+            MirrorHealthCache.updateCache(results.toMap())
+        }
+    }
+
+    fun testNetworkConnectivity(executor: ProotExecutor): Boolean {
+        val result = executor.execute(
+            "curl -s --connect-timeout 5 -o /dev/null -w '%{http_code}' https://mirrors.tuna.tsinghua.edu.cn/alpine",
+            timeoutSeconds = 15,
+        )
+        val httpCode = result["stdout"] as? String
+        return httpCode == "200" || httpCode == "301" || httpCode == "302"
     }
 
     fun writeRepositories(rootfsDir: File, mirrorBase: String) {

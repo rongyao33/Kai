@@ -204,6 +204,7 @@ object FileGeneratorRegistry {
         HtmlGenerator(),
         MarkdownGenerator(),
         XmlGenerator(),
+        WordGenerator(),
     )
 
     fun getGenerator(extension: String): FileGenerator? {

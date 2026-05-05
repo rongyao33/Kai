@@ -4,6 +4,7 @@ enum class FileCategory {
     IMAGE,
     TEXT,
     PDF,
+    DOC,
     UNSUPPORTED,
 }
 
@@ -37,6 +38,11 @@ private val textExtensions = setOf(
     "gradle", "tsx", "jsx",
 )
 
+private val wordExtensions = setOf(
+    "docx",
+    "doc",
+)
+
 internal val imageExtensions = setOf(
     "jpg",
     "jpeg",
@@ -47,18 +53,21 @@ internal val imageExtensions = setOf(
     "svg",
 )
 
-val supportedFileExtensions = (imageExtensions + textExtensions).toList()
+val supportedFileExtensions = (imageExtensions + textExtensions + wordExtensions).toList()
 
 fun classifyFile(mimeType: String?, fileName: String?): FileCategory {
     if (mimeType != null) {
         if (mimeType.startsWith("image/")) return FileCategory.IMAGE
         if (mimeType == "application/pdf") return FileCategory.PDF
+        if (mimeType == "application/msword") return FileCategory.DOC
+        if (mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return FileCategory.DOC
         if (mimeType.startsWith("text/") || mimeType in textMimeTypes) return FileCategory.TEXT
     }
     // Fall back to extension
     val ext = fileName?.substringAfterLast('.', "")?.lowercase()
     if (ext != null && ext in imageExtensions) return FileCategory.IMAGE
     if (ext != null && ext in textExtensions) return FileCategory.TEXT
+    if (ext != null && ext in wordExtensions) return FileCategory.DOC
     if (ext == "pdf") return FileCategory.PDF
 
     // If mimeType is null and no recognized extension, unsupported

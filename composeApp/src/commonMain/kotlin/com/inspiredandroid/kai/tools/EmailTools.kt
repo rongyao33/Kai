@@ -5,6 +5,7 @@ import com.inspiredandroid.kai.data.EmailStore
 import com.inspiredandroid.kai.email.ImapClient
 import com.inspiredandroid.kai.email.ServerAutoDetect
 import com.inspiredandroid.kai.email.SmtpClient
+import com.inspiredandroid.kai.util.Logger
 import com.inspiredandroid.kai.network.tools.ParameterSchema
 import com.inspiredandroid.kai.network.tools.Tool
 import com.inspiredandroid.kai.network.tools.ToolInfo
@@ -143,7 +144,7 @@ object EmailTools {
                         (detected?.note?.let { " Note: $it" } ?: ""),
                 )
             } finally {
-                try { imap.logout() } catch (_: Exception) {}
+                try { imap.logout() } catch (e: Exception) { Logger.w("EmailTools", "imap logout failed: ${e.message}") }
             }
         }
     }

@@ -33,6 +33,9 @@ bouncycastle = "1.84"
 reorderable = "3.1.0"
 litert-lm = "0.10.2"
 materialIcons = "1.7.3"
+poi = "5.2.5"
+poi-ooxml = "5.2.5"
+mlkit-text-recognition = "16.0.0"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
@@ -89,6 +92,10 @@ bouncycastle-provider = { module = "org.bouncycastle:bcprov-jdk18on", version.re
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 litert-lm = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litert-lm" }
 litert-lm-jvm = { module = "com.google.ai.edge.litertlm:litertlm-jvm", version.ref = "litert-lm" }
+poi = { module = "org.apache.poi:poi", version.ref = "poi" }
+poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi-ooxml" }
+mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-text-recognition" }
+
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

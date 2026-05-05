@@ -90,6 +90,9 @@ kotlin {
             implementation(libs.material)
             implementation(libs.bouncycastle.provider)
             implementation(libs.litert.lm)
+            implementation(libs.poi)
+            implementation(libs.poi.ooxml)
+            implementation(libs.mlkit.text.recognition)
         }
         commonMain.dependencies {
             implementation(libs.compose.material3)
@@ -141,6 +144,8 @@ kotlin {
             implementation(libs.bouncycastle.provider)
             implementation(libs.slf4j.nop)
             implementation(libs.litert.lm.jvm)
+            implementation(libs.poi)
+            implementation(libs.poi.ooxml)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

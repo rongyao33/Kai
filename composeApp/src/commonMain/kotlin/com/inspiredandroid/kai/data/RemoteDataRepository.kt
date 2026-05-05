@@ -679,6 +679,7 @@ class RemoteDataRepository(
                 FileCategory.TEXT -> MAX_TEXT_FILE_BYTES.toLong()
                 FileCategory.PDF -> MAX_PDF_BYTES.toLong()
                 FileCategory.IMAGE -> MAX_RAW_IMAGE_BYTES.toLong()
+                FileCategory.DOC -> MAX_TEXT_FILE_BYTES.toLong()
                 FileCategory.UNSUPPORTED -> 0L
             }
             if (file.size() > rawSizeLimit) throw FileTooLargeException()
@@ -709,6 +710,17 @@ class RemoteDataRepository(
                     mimeType = "application/pdf",
                     fileName = fileName,
                 )
+
+                FileCategory.DOC -> {
+                    val extractedText = parseWordDocument(rawBytes, fileName)
+                        ?: throw UnsupportedFileTypeException()
+                    if (extractedText.length > MAX_TEXT_FILE_BYTES) throw FileTooLargeException()
+                    Attachment(
+                        data = Base64.encode(extractedText.toByteArray()),
+                        mimeType = "text/plain",
+                        fileName = fileName,
+                    )
+                }
 
                 FileCategory.UNSUPPORTED -> throw UnsupportedFileTypeException()
             }
@@ -929,8 +941,8 @@ class RemoteDataRepository(
 
             // Convert Gemini function calls to ToolCallInfo with synthetic IDs
             // Include thoughtSignature from the Part (required for Gemini 3 models)
-            val toolCallInfos = partsWithFunctionCalls.map { part ->
-                val fc = part.functionCall!!
+            val toolCallInfos = partsWithFunctionCalls.mapNotNull { part ->
+                val fc = part.functionCall ?: return@mapNotNull null
                 val argsJson = fc.args?.let { args ->
                     args.entries.joinToString(", ", "{", "}") { (k, v) ->
                         "\"$k\": ${toolExecutor.formatJsonElement(v)}"
@@ -1292,7 +1304,7 @@ class RemoteDataRepository(
                 }
             }
         }
-        throw lastException!!
+        throw lastException ?: IllegalStateException("Retry loop completed without result or exception")
     }
 
     private fun estimateMessageChars(msg: com.inspiredandroid.kai.network.dtos.openaicompatible.OpenAICompatibleChatRequestDto.Message): Int {
@@ -1891,6 +1903,18 @@ class RemoteDataRepository(
 
     override fun setDaemonEnabled(enabled: Boolean) {
         appSettings.setDaemonEnabled(enabled)
+    }
+
+    override fun isKnowledgeBaseEnabled(): Boolean = appSettings.isKnowledgeBaseEnabled()
+
+    override fun setKnowledgeBaseEnabled(enabled: Boolean) {
+        appSettings.setKnowledgeBaseEnabled(enabled)
+    }
+
+    override fun isKnowledgeBaseWatchEnabled(): Boolean = appSettings.isKnowledgeBaseWatchEnabled()
+
+    override fun setKnowledgeBaseWatchEnabled(enabled: Boolean) {
+        appSettings.setKnowledgeBaseWatchEnabled(enabled)
     }
 
     override fun isSandboxEnabled(): Boolean = appSettings.isSandboxEnabled()

@@ -88,8 +88,8 @@ class HeartbeatManager(
         val pendingTasks = tasksSplit.scheduled
         val heartbeatAdditions = tasksSplit.heartbeatAdditions
         val emailEnabled = emailStore != null && appSettings.isEmailEnabled()
-        val store = emailStore
-        val accounts = if (emailEnabled && store != null) store.getAccounts() else emptyList()
+        val store = if (emailEnabled) emailStore!! else null
+        val accounts = store?.getAccounts() ?: emptyList()
         val emailAccounts: List<EmailAccountSummary> = accounts.map { account ->
             val syncState = store?.getSyncState(account.id) ?: return@map EmailAccountSummary(
                 email = account.email,
