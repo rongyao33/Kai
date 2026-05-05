@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.inspiredandroid.kai.data.Conversation
 import com.inspiredandroid.kai.data.DataRepository
+import com.inspiredandroid.kai.data.FileGeneratorRegistry
 import com.inspiredandroid.kai.data.FileOutput
 import com.inspiredandroid.kai.data.FreeMode
 import com.inspiredandroid.kai.data.Service
@@ -442,7 +443,8 @@ class ChatViewModel(
 
     private fun saveGeneratedFile(file: FileOutput) {
         viewModelScope.launch {
-            val bytes = file.content.toByteArray()
+            val generator = FileGeneratorRegistry.getGenerator(file.extension)
+            val bytes = generator?.generate(file.content) ?: file.content.toByteArray()
             saveFileToDevice(bytes, file.filename.substringBeforeLast('.'), file.extension)
         }
     }
